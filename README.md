@@ -106,7 +106,8 @@ The backend still needs its own deployment target such as Render, Railway, Fly.i
 
 - `render.yaml` is included at the repo root.
 - Create a new Render Web Service from this repo.
-- Render should detect `rootDir: backend`, then run `npm install` and `npm start`.
+- Render will use `backend/` as the service root, run `npm install`, and start with `npm start`.
+- Render health check uses `/api/health`.
 - Set `APP_ORIGIN` to your allowed frontend URLs, separated by commas.
 - Set `STRIPE_SECRET_KEY` in the Render environment.
 
@@ -115,6 +116,22 @@ Example:
 ```env
 APP_ORIGIN=http://127.0.0.1:5173,https://zebibu.github.io/football-live-bet-tracker
 ```
+
+After Render gives you a backend URL such as `https://football-live-bet-backend.onrender.com`, add this GitHub repository variable:
+
+```env
+VITE_API_BASE_URL=https://football-live-bet-backend.onrender.com/api
+```
+
+That variable is now required by the Pages workflow so the deployed frontend can call the Render backend.
+
+Recommended Render flow:
+
+1. Create the Render web service from this repo.
+2. Set `APP_ORIGIN` and `STRIPE_SECRET_KEY` in Render.
+3. Copy the Render backend URL.
+4. In GitHub repository settings, add `VITE_API_BASE_URL` as an Actions variable.
+5. Push to `main` again or rerun the Pages workflow to rebuild the frontend with the Render API URL.
 
 ### Railway backend
 
