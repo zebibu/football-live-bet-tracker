@@ -1,6 +1,6 @@
 # Football Live Bet Tracker
 
-A peer-to-peer football betting prototype where friends can sign in, browse games for today and tomorrow, offer custom odds to each other, lock a deal only after both sides are funded, and monitor live score updates from a free score source.
+A peer-to-peer football betting prototype where friends can sign in, browse games for today and tomorrow, offer custom odds to each other, lock a deal only after both sides are funded, and monitor live score updates through the backend from a free score provider.
 
 ## Project Structure
 
@@ -11,7 +11,6 @@ A peer-to-peer football betting prototype where friends can sign in, browse game
 ## Live Demo
 
 - Repository: https://github.com/zebibu/football-live-bet-tracker
-- GitHub Pages: https://zebibu.github.io/football-live-bet-tracker/
 
 ## Preview
 
@@ -29,14 +28,23 @@ A peer-to-peer football betting prototype where friends can sign in, browse game
 
 ## Live Data Source
 
-The live panel currently uses ESPN public scoreboard JSON endpoints for:
+The live panel now loads through the backend at `/api/football/live`, so the frontend only talks to your own API in local development and production.
+
+By default the backend uses ESPN public scoreboard JSON endpoints for:
 
 - Premier League
 - La Liga
 - Serie A
 - Ligue 1
 
-The integration surface is isolated in `frontend/src/services/football.ts`, so the provider can be swapped later.
+If you want to switch the backend to football-data.org, set:
+
+```env
+FOOTBALL_DATA_PROVIDER=football-data
+FOOTBALL_DATA_API_KEY=your_football_data_api_key
+```
+
+The frontend integration surface stays isolated in `frontend/src/services/football.ts`, and the provider selection now lives in `backend/server/index.js`.
 
 ## Run Locally
 
@@ -57,12 +65,13 @@ Do not reuse any secret key that was pasted into chat. Revoke it in Stripe and c
 Copy `backend/.env.example` to `backend/.env` and set:
 
 ```env
-APP_ORIGIN=http://127.0.0.1:5173,https://zebibu.github.io/football-live-bet-tracker
+APP_ORIGIN=http://127.0.0.1:5173,https://your-vercel-app.vercel.app
 STRIPE_SECRET_KEY=your_fresh_secret_key_here
 STRIPE_WEBHOOK_SECRET=your_stripe_webhook_signing_secret
 PAYPAL_CLIENT_ID=your_paypal_client_id
 PAYPAL_CLIENT_SECRET=your_paypal_client_secret
 PAYPAL_ENVIRONMENT=sandbox
+FOOTBALL_DATA_PROVIDER=espn
 ```
 
 Card deposits require Stripe. PayPal deposits require a PayPal REST app. Both payment methods redirect the user to the provider and return to the app after approval.
@@ -129,10 +138,6 @@ npm run build
 
 ## Deploy
 
-This repository includes a GitHub Pages workflow in `.github/workflows/deploy.yml` for the frontend build in `frontend/`.
-
-The backend still needs its own deployment target such as Render, Railway, Fly.io, or a VPS.
-
 ### Render backend
 
 - `render.yaml` is included at the repo root.
@@ -140,29 +145,40 @@ The backend still needs its own deployment target such as Render, Railway, Fly.i
 - Render will use `backend/` as the service root, run `npm install`, and start with `npm start`.
 - Render health check uses `/api/health`.
 - Set `APP_ORIGIN` to your allowed frontend URLs, separated by commas.
-- Set `STRIPE_SECRET_KEY` in the Render environment.
+- Set `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and the PayPal env values in Render if you want both payment methods live.
+- Leave `FOOTBALL_DATA_PROVIDER=espn` for the default free provider, or switch to `football-data` and add `FOOTBALL_DATA_API_KEY`.
 
 Example:
 
 ```env
-APP_ORIGIN=http://127.0.0.1:5173,https://zebibu.github.io/football-live-bet-tracker
+APP_ORIGIN=http://127.0.0.1:5173,https://your-vercel-app.vercel.app
 ```
 
-After Render gives you a backend URL such as `https://football-live-bet-backend.onrender.com`, add this GitHub repository variable:
+After Render gives you a backend URL such as `https://football-live-bet-backend.onrender.com`, use it as the frontend API base URL.
+
+### Vercel frontend
+
+- Import this repository into Vercel.
+- Set the project root directory to `frontend`.
+- Vercel should detect the Vite build automatically. If it does not, use `npm run build` as the build command and `dist` as the output directory.
+- Add these Vercel environment variables:
 
 ```env
 VITE_API_BASE_URL=https://football-live-bet-backend.onrender.com/api
+VITE_STRIPE_PUBLISHABLE_KEY=your_stripe_publishable_key
+VITE_FIREBASE_API_KEY=your_firebase_web_api_key
+VITE_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=your-project-id
+VITE_FIREBASE_APP_ID=your-firebase-app-id
 ```
 
-That variable is now required by the Pages workflow so the deployed frontend can call the Render backend.
-
-Recommended Render flow:
+Recommended Vercel + Render flow:
 
 1. Create the Render web service from this repo.
-2. Set `APP_ORIGIN` and `STRIPE_SECRET_KEY` in Render.
+2. Set `APP_ORIGIN`, Stripe, and PayPal variables in Render.
 3. Copy the Render backend URL.
-4. In GitHub repository settings, add `VITE_API_BASE_URL` as an Actions variable.
-5. Push to `main` again or rerun the Pages workflow to rebuild the frontend with the Render API URL.
+4. In Vercel, set `VITE_API_BASE_URL` to that backend URL plus `/api`.
+5. Deploy the frontend from the `frontend` directory in Vercel.
 
 ### Railway backend
 
@@ -179,4 +195,4 @@ When the backend is deployed, point the frontend to it in `frontend/.env`:
 VITE_API_BASE_URL=https://your-backend-domain/api
 ```
 
-That is required because GitHub Pages cannot proxy `/api` to your backend.
+That is the cleanest setup when Vercel serves the frontend and Render serves the backend separately.

@@ -1,38 +1,3 @@
-type EspnScoreboardResponse = {
-  leagues?: Array<{
-    slug?: string
-    name?: string
-  }>
-  events?: Array<{
-    id: string
-    date: string
-    competitions?: Array<{
-      status?: {
-        type?: {
-          description?: string
-          detail?: string
-          state?: string
-        }
-      }
-      venue?: {
-        fullName?: string
-      }
-      competitors?: Array<{
-        homeAway?: 'home' | 'away'
-        score?: string
-        team?: {
-          displayName?: string
-          logo?: string
-        }
-      }>
-    }>
-    links?: Array<{
-      text?: string
-      href?: string
-    }>
-  }>
-}
-
 export type LiveScoreLeague = {
   slug: string
   label: string
@@ -65,59 +30,20 @@ export const liveLeagueOptions: LiveScoreLeague[] = [
   { slug: 'fra.1', label: 'Ligue 1' },
 ]
 
-const API_BASE = 'https://site.api.espn.com/apis/site/v2/sports/soccer'
-
-function formatKickoff(date: string) {
-  return new Intl.DateTimeFormat('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(date))
-}
+const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '')
 
 export async function fetchLiveScoreOverview(leagueSlug: string): Promise<LiveScoreOverview> {
-  const response = await fetch(`${API_BASE}/${leagueSlug}/scoreboard`)
+  const response = await fetch(`${apiBaseUrl}/football/live?league=${encodeURIComponent(leagueSlug)}`)
 
   if (!response.ok) {
     throw new Error('Live score request failed')
   }
 
-  const data = (await response.json()) as EspnScoreboardResponse
-  const leagueLabel =
-    liveLeagueOptions.find((league) => league.slug === leagueSlug)?.label ||
-    data.leagues?.[0]?.name ||
-    'Live scores'
+  const data = (await response.json()) as LiveScoreOverview & { message?: string }
 
-  const matches =
-    data.events?.slice(0, 8).map((event) => {
-      const competition = event.competitions?.[0]
-      const home = competition?.competitors?.find((team) => team.homeAway === 'home')
-      const away = competition?.competitors?.find((team) => team.homeAway === 'away')
-      const summaryLink = event.links?.find((link) => link.text === 'Summary')?.href || ''
-
-      return {
-        id: event.id,
-        homeTeam: home?.team?.displayName || 'Home team',
-        awayTeam: away?.team?.displayName || 'Away team',
-        homeScore: home?.score || '-',
-        awayScore: away?.score || '-',
-        status: competition?.status?.type?.detail || competition?.status?.type?.description || 'Scheduled',
-        kickoff: formatKickoff(event.date),
-        venue: competition?.venue?.fullName || 'Venue pending',
-        detailsUrl: summaryLink,
-        homeLogo: home?.team?.logo || '',
-        awayLogo: away?.team?.logo || '',
-      }
-    }) || []
-
-  return {
-    leagueLabel,
-    updatedAt: new Intl.DateTimeFormat('en-GB', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    }).format(new Date()),
-    matches,
+  if (!Array.isArray(data.matches)) {
+    throw new Error(data.message || 'Live score payload was invalid')
   }
+
+  return data
 }

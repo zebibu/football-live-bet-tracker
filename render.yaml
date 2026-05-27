@@ -12,3 +12,15 @@ services:
         sync: false
       - key: STRIPE_SECRET_KEY
         sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      - key: PAYPAL_ENVIRONMENT
+        sync: false
+      - key: FOOTBALL_DATA_PROVIDER
+        sync: false
+      - key: FOOTBALL_DATA_API_KEY
+        sync: false

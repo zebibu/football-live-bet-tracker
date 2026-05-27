@@ -10,6 +10,8 @@ const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET
 const paypalClientId = process.env.PAYPAL_CLIENT_ID
 const paypalClientSecret = process.env.PAYPAL_CLIENT_SECRET
 const paypalEnvironment = process.env.PAYPAL_ENVIRONMENT === 'live' ? 'live' : 'sandbox'
+const footballDataProvider = process.env.FOOTBALL_DATA_PROVIDER === 'football-data' ? 'football-data' : 'espn'
+const footballDataApiKey = process.env.FOOTBALL_DATA_API_KEY
 const paypalBaseUrl =
   paypalEnvironment === 'live' ? 'https://api-m.paypal.com' : 'https://api-m.sandbox.paypal.com'
 const allowedOrigins = (process.env.APP_ORIGIN || 'http://127.0.0.1:5173')
@@ -18,6 +20,28 @@ const allowedOrigins = (process.env.APP_ORIGIN || 'http://127.0.0.1:5173')
   .filter(Boolean)
 const primaryAppOrigin = allowedOrigins[0] || 'http://127.0.0.1:5173'
 const confirmedStripeDeposits = new Map()
+const supportedLiveLeagues = {
+  'eng.1': {
+    label: 'Premier League',
+    espnPath: 'eng.1',
+    footballDataCompetition: 'PL',
+  },
+  'esp.1': {
+    label: 'La Liga',
+    espnPath: 'esp.1',
+    footballDataCompetition: 'PD',
+  },
+  'ita.1': {
+    label: 'Serie A',
+    espnPath: 'ita.1',
+    footballDataCompetition: 'SA',
+  },
+  'fra.1': {
+    label: 'Ligue 1',
+    espnPath: 'fra.1',
+    footballDataCompetition: 'FL1',
+  },
+}
 
 function getStripeClient() {
   if (!stripeSecretKey) {
@@ -84,6 +108,130 @@ async function paypalRequest(path, options = {}) {
   return response.json()
 }
 
+function formatMatchKickoff(date) {
+  return new Intl.DateTimeFormat('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(date))
+}
+
+function formatUpdatedAt(date = new Date()) {
+  return new Intl.DateTimeFormat('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).format(date)
+}
+
+async function fetchEspnLiveScores(leagueKey, leagueConfig) {
+  const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueConfig.espnPath}/scoreboard`)
+
+  if (!response.ok) {
+    throw new Error('Live score request failed.')
+  }
+
+  const data = await response.json()
+  const matches =
+    data.events?.slice(0, 8).map((event) => {
+      const competition = event.competitions?.[0]
+      const home = competition?.competitors?.find((team) => team.homeAway === 'home')
+      const away = competition?.competitors?.find((team) => team.homeAway === 'away')
+      const summaryLink = event.links?.find((link) => link.text === 'Summary')?.href || ''
+
+      return {
+        id: event.id,
+        homeTeam: home?.team?.displayName || 'Home team',
+        awayTeam: away?.team?.displayName || 'Away team',
+        homeScore: home?.score || '-',
+        awayScore: away?.score || '-',
+        status: competition?.status?.type?.detail || competition?.status?.type?.description || 'Scheduled',
+        kickoff: formatMatchKickoff(event.date),
+        venue: competition?.venue?.fullName || 'Venue pending',
+        detailsUrl: summaryLink,
+        homeLogo: home?.team?.logo || '',
+        awayLogo: away?.team?.logo || '',
+      }
+    }) || []
+
+  return {
+    provider: 'espn',
+    league: leagueKey,
+    leagueLabel: leagueConfig.label,
+    updatedAt: formatUpdatedAt(),
+    matches,
+  }
+}
+
+async function fetchFootballDataLiveScores(leagueKey, leagueConfig) {
+  if (!footballDataApiKey) {
+    throw new Error('FOOTBALL_DATA_API_KEY is required when FOOTBALL_DATA_PROVIDER=football-data.')
+  }
+
+  const response = await fetch(
+    `https://api.football-data.org/v4/competitions/${leagueConfig.footballDataCompetition}/matches?status=LIVE,IN_PLAY,PAUSED,FINISHED,SCHEDULED`,
+    {
+      headers: {
+        'X-Auth-Token': footballDataApiKey,
+      },
+    },
+  )
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(`football-data.org request failed: ${errorText}`)
+  }
+
+  const data = await response.json()
+  const matches =
+    data.matches?.slice(0, 8).map((match) => ({
+      id: String(match.id),
+      homeTeam: match.homeTeam?.name || 'Home team',
+      awayTeam: match.awayTeam?.name || 'Away team',
+      homeScore:
+        typeof match.score?.fullTime?.home === 'number'
+          ? String(match.score.fullTime.home)
+          : match.status === 'SCHEDULED'
+            ? '-'
+            : String(match.score?.halfTime?.home ?? '-'),
+      awayScore:
+        typeof match.score?.fullTime?.away === 'number'
+          ? String(match.score.fullTime.away)
+          : match.status === 'SCHEDULED'
+            ? '-'
+            : String(match.score?.halfTime?.away ?? '-'),
+      status: match.status || 'SCHEDULED',
+      kickoff: formatMatchKickoff(match.utcDate),
+      venue: match.venue || 'Venue pending',
+      detailsUrl: '',
+      homeLogo: match.homeTeam?.crest || '',
+      awayLogo: match.awayTeam?.crest || '',
+    })) || []
+
+  return {
+    provider: 'football-data',
+    league: leagueKey,
+    leagueLabel: leagueConfig.label,
+    updatedAt: formatUpdatedAt(),
+    matches,
+  }
+}
+
+async function fetchLiveScores(leagueKey) {
+  const leagueConfig = supportedLiveLeagues[leagueKey]
+
+  if (!leagueConfig) {
+    throw new Error('Unsupported live-score league.')
+  }
+
+  if (footballDataProvider === 'football-data') {
+    return fetchFootballDataLiveScores(leagueKey, leagueConfig)
+  }
+
+  return fetchEspnLiveScores(leagueKey, leagueConfig)
+}
+
 app.use(
   cors({
     origin(origin, callback) {
@@ -96,16 +244,6 @@ app.use(
     },
   }),
 )
-app.use(express.json())
-
-app.get('/api/health', (_request, response) => {
-  response.json({
-    ok: true,
-    stripeConfigured: Boolean(stripeSecretKey),
-    stripeWebhookConfigured: Boolean(stripeWebhookSecret),
-    paypalConfigured: isPaypalConfigured(),
-  })
-})
 
 app.post('/api/payments/stripe/webhook', express.raw({ type: 'application/json' }), (request, response) => {
   if (!stripeSecretKey || !stripeWebhookSecret) {
@@ -147,6 +285,31 @@ app.post('/api/payments/stripe/webhook', express.raw({ type: 'application/json' 
   } catch (error) {
     response.status(400).json({
       message: error instanceof Error ? error.message : 'Stripe webhook verification failed.',
+    })
+  }
+})
+
+app.use(express.json())
+
+app.get('/api/health', (_request, response) => {
+  response.json({
+    ok: true,
+    stripeConfigured: Boolean(stripeSecretKey),
+    stripeWebhookConfigured: Boolean(stripeWebhookSecret),
+    paypalConfigured: isPaypalConfigured(),
+    footballDataProvider,
+  })
+})
+
+app.get('/api/football/live', async (request, response) => {
+  const league = String(request.query.league || 'eng.1')
+
+  try {
+    const overview = await fetchLiveScores(league)
+    response.json(overview)
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : 'Could not load live football results.',
     })
   }
 })
