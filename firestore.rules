@@ -1,0 +1,146 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function hasOnlyKeys(allowedKeys) {
+      return request.resource.data.keys().hasOnly(allowedKeys);
+    }
+
+    function isValidProfileCreate(uid) {
+      return isOwner(uid)
+        && hasOnlyKeys(['uid', 'name', 'email', 'username', 'photoUrl', 'walletBalance', 'createdAt', 'updatedAt'])
+        && request.resource.data.uid == uid
+        && request.resource.data.name is string
+        && request.resource.data.email is string
+        && request.resource.data.username is string
+        && (!('photoUrl' in request.resource.data) || request.resource.data.photoUrl == null || request.resource.data.photoUrl is string)
+        && request.resource.data.walletBalance is number;
+    }
+
+    function isValidProfileUpdate(uid) {
+      return isOwner(uid)
+        && hasOnlyKeys(['uid', 'name', 'email', 'username', 'photoUrl', 'walletBalance', 'createdAt', 'updatedAt'])
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.walletBalance == resource.data.walletBalance
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.name is string
+        && request.resource.data.email is string
+        && request.resource.data.username is string
+        && (!('photoUrl' in request.resource.data) || request.resource.data.photoUrl == null || request.resource.data.photoUrl is string);
+    }
+
+    function isValidWalletTransactionCreate(transactionId) {
+      return isSignedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.username is string
+        && request.resource.data.amount is number
+        && request.resource.data.currency is string
+        && request.resource.data.provider is string
+        && request.resource.data.providerPaymentId is string
+        && request.resource.data.kind is string
+        && request.resource.data.status is string
+        && (
+          (
+            request.resource.data.kind == 'opening_balance'
+            && transactionId == 'opening_' + request.auth.uid
+            && request.resource.data.amount == 4000
+            && request.resource.data.provider == 'system'
+            && request.resource.data.status == 'posted'
+          )
+          || (
+            request.resource.data.kind == 'stake_lock'
+            && request.resource.data.amount < 0
+            && request.resource.data.provider == 'app'
+            && request.resource.data.status == 'locked'
+          )
+        );
+    }
+
+    function isValidOfferCreate() {
+      return isSignedIn()
+        && hasOnlyKeys(['gameId', 'gameLabel', 'offeredBy', 'offeredByUid', 'proposedOdds', 'stake', 'note', 'creatorFunded', 'status', 'createdAt', 'updatedAt'])
+        && request.resource.data.gameId is string
+        && request.resource.data.gameLabel is string
+        && request.resource.data.offeredBy is string
+        && request.resource.data.offeredByUid == request.auth.uid
+        && request.resource.data.proposedOdds is number
+        && request.resource.data.proposedOdds >= 1.01
+        && request.resource.data.stake is number
+        && request.resource.data.stake > 0
+        && request.resource.data.note is string
+        && request.resource.data.creatorFunded == true
+        && request.resource.data.status == 'open';
+    }
+
+    function isValidOfferMatch() {
+      return isSignedIn()
+        && resource.data.status == 'open'
+        && request.resource.data.status == 'matched'
+        && request.resource.data.gameId == resource.data.gameId
+        && request.resource.data.gameLabel == resource.data.gameLabel
+        && request.resource.data.offeredBy == resource.data.offeredBy
+        && request.resource.data.offeredByUid == resource.data.offeredByUid
+        && request.resource.data.proposedOdds == resource.data.proposedOdds
+        && request.resource.data.stake == resource.data.stake
+        && request.resource.data.note == resource.data.note
+        && request.resource.data.creatorFunded == resource.data.creatorFunded
+        && request.resource.data.keys().hasAll(['matchedByUid', 'matchedByName', 'updatedAt'])
+        && request.resource.data.matchedByUid == request.auth.uid
+        && request.resource.data.matchedByUid != resource.data.offeredByUid
+        && request.resource.data.matchedByName is string;
+    }
+
+    function isValidDealCreate() {
+      return isSignedIn()
+        && hasOnlyKeys(['gameLabel', 'createdByUid', 'createdByName', 'acceptedByUid', 'acceptedByName', 'agreedOdds', 'stake', 'status', 'createdAt', 'updatedAt'])
+        && request.resource.data.gameLabel is string
+        && request.resource.data.createdByUid is string
+        && request.resource.data.createdByName is string
+        && request.resource.data.acceptedByUid == request.auth.uid
+        && request.resource.data.acceptedByName is string
+        && request.resource.data.agreedOdds is number
+        && request.resource.data.agreedOdds >= 1.01
+        && request.resource.data.stake is number
+        && request.resource.data.stake > 0
+        && request.resource.data.status == 'locked';
+    }
+
+    match /users/{uid} {
+      allow read: if isOwner(uid);
+      allow create: if isValidProfileCreate(uid);
+      allow update: if isValidProfileUpdate(uid);
+      allow delete: if false;
+    }
+
+    match /offers/{offerId} {
+      allow read: if isSignedIn();
+      allow create: if isValidOfferCreate();
+      allow update: if isValidOfferMatch();
+      allow delete: if false;
+    }
+
+    match /deals/{dealId} {
+      allow read: if isSignedIn()
+        && (resource.data.createdByUid == request.auth.uid || resource.data.acceptedByUid == request.auth.uid);
+      allow create: if isValidDealCreate();
+      allow update, delete: if false;
+    }
+
+    match /walletTransactions/{transactionId} {
+      allow read: if isSignedIn() && resource.data.uid == request.auth.uid;
+      allow create: if isValidWalletTransactionCreate(transactionId);
+      allow update, delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

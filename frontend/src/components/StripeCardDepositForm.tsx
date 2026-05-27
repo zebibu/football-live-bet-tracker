@@ -3,6 +3,7 @@ import { useState } from 'react'
 
 type StripeCardDepositFormProps = {
   amount: string
+  userId: string
   username: string
   cardholderName: string
   apiBaseUrl: string
@@ -28,6 +29,7 @@ const elementOptions = {
 
 export function StripeCardDepositForm({
   amount,
+  userId,
   username,
   cardholderName,
   apiBaseUrl,
@@ -72,6 +74,7 @@ export function StripeCardDepositForm({
         },
         body: JSON.stringify({
           amount: depositAmount,
+          uid: userId,
           username,
         }),
       })
@@ -99,6 +102,13 @@ export function StripeCardDepositForm({
       }
 
       if (result.paymentIntent?.status === 'succeeded') {
+        const confirmationResponse = await fetch(`${apiBaseUrl}/payments/stripe/payment-intent/${result.paymentIntent.id}`)
+        const confirmationData = (await confirmationResponse.json()) as { confirmed?: boolean; message?: string }
+
+        if (!confirmationResponse.ok || !confirmationData.confirmed) {
+          throw new Error(confirmationData.message || 'The backend could not confirm the Stripe deposit.')
+        }
+
         onSuccess(depositAmount)
         return
       }

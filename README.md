@@ -72,6 +72,9 @@ PAYPAL_CLIENT_ID=your_paypal_client_id
 PAYPAL_CLIENT_SECRET=your_paypal_client_secret
 PAYPAL_ENVIRONMENT=sandbox
 FOOTBALL_DATA_PROVIDER=espn
+FIREBASE_PROJECT_ID=your-firebase-project-id
+FIREBASE_CLIENT_EMAIL=your-service-account-client-email
+FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
 ```
 
 Card deposits require Stripe. PayPal deposits require a PayPal REST app. Both payment methods redirect the user to the provider and return to the app after approval.
@@ -88,7 +91,7 @@ stripe listen --forward-to http://127.0.0.1:8787/api/payments/stripe/webhook
 
 Stripe will print a signing secret that starts with `whsec_`. Put that only in `backend/.env` as `STRIPE_WEBHOOK_SECRET`.
 
-The webhook currently confirms successful Stripe payments server-side and keeps recent confirmations in backend memory. For a production build, the next step after this is persisting those confirmations in a database-backed wallet ledger.
+The webhook currently confirms successful Stripe payments server-side and can persist verified deposit transactions into Firestore when Firebase Admin credentials are configured on the backend. That moves payment-confirmed wallet updates behind the backend instead of relying only on client-side writes.
 
 ## Social sign-in setup
 
@@ -119,6 +122,35 @@ The sign-in screen also includes:
 - friendlier Firebase auth errors
 - a `Forgot password?` reset email action
 
+## Firestore setup
+
+The app now supports Firestore-backed persistence for:
+
+- user profile and wallet balance
+- open offers
+- locked deals
+
+Create Firestore in the Firebase console first, then switch off test mode by deploying the starter rules included in this repo:
+
+- `firestore.rules`
+- `firebase.json`
+
+Install Firebase CLI if needed:
+
+```bash
+npm install -g firebase-tools
+```
+
+Then log in and deploy the Firestore rules from the repo root:
+
+```bash
+firebase login
+firebase use football-live-bet-tracker
+firebase deploy --only firestore:rules
+```
+
+These are starter rules for the current frontend data model. Wallet balance is now derived from the `walletTransactions` collection, and direct client updates to `users.walletBalance` are blocked by the rules. After changing the rules file, redeploy it with `firebase deploy --only firestore:rules`.
+
 ## Payment methods
 
 The deposit screen now supports:
@@ -126,6 +158,8 @@ The deposit screen now supports:
 - Visa via Stripe Elements
 - Mastercard via Stripe Elements
 - PayPal via PayPal Orders API
+
+The withdrawal screen now sends a backend withdrawal request that writes a negative `walletTransactions` entry when Firebase Admin is configured.
 
 The app redirects the user to the selected provider and confirms the payment when the provider returns to the app.
 Stripe payments now also have a server-side webhook confirmation path.
@@ -147,6 +181,7 @@ npm run build
 - Set `APP_ORIGIN` to your allowed frontend URLs, separated by commas.
 - Set `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and the PayPal env values in Render if you want both payment methods live.
 - Leave `FOOTBALL_DATA_PROVIDER=espn` for the default free provider, or switch to `football-data` and add `FOOTBALL_DATA_API_KEY`.
+- Add `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, and `FIREBASE_PRIVATE_KEY` if you want backend-written wallet transactions in Firestore.
 
 Example:
 

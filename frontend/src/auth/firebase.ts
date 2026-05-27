@@ -13,6 +13,7 @@ import {
   updateProfile,
   type User,
 } from 'firebase/auth'
+import { getFirestore } from 'firebase/firestore'
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -25,8 +26,9 @@ const hasFirebaseConfig = Object.values(firebaseConfig).every(
   (value) => typeof value === 'string' && value.trim().length > 0,
 )
 
-const firebaseApp = hasFirebaseConfig ? initializeApp(firebaseConfig) : null
+export const firebaseApp = hasFirebaseConfig ? initializeApp(firebaseConfig) : null
 const firebaseAuth = firebaseApp ? getAuth(firebaseApp) : null
+export const firebaseDb = firebaseApp ? getFirestore(firebaseApp) : null
 
 function ensureAuth() {
   if (!firebaseAuth) {
@@ -53,6 +55,7 @@ function buildProvider(providerName: 'google' | 'facebook' | 'apple') {
 export type SocialProviderName = 'google' | 'facebook' | 'apple'
 
 export type AuthProfile = {
+  uid: string
   name: string
   email: string
   username: string
@@ -63,11 +66,16 @@ export function isFirebaseAuthReady() {
   return hasFirebaseConfig
 }
 
+export function isFirestoreReady() {
+  return Boolean(firebaseDb)
+}
+
 export function toAuthProfile(user: User): AuthProfile {
   const email = user.email || 'friend@example.com'
   const fallbackName = email.split('@')[0] || 'Friend User'
 
   return {
+    uid: user.uid,
     name: user.displayName || fallbackName,
     email,
     username: email.split('@')[0] || fallbackName,

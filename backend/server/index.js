@@ -1,6 +1,8 @@
 import 'dotenv/config'
 import cors from 'cors'
 import express from 'express'
+import { cert, getApps, initializeApp } from 'firebase-admin/app'
+import { FieldValue, getFirestore } from 'firebase-admin/firestore'
 import Stripe from 'stripe'
 
 const app = express()
@@ -12,6 +14,9 @@ const paypalClientSecret = process.env.PAYPAL_CLIENT_SECRET
 const paypalEnvironment = process.env.PAYPAL_ENVIRONMENT === 'live' ? 'live' : 'sandbox'
 const footballDataProvider = process.env.FOOTBALL_DATA_PROVIDER === 'football-data' ? 'football-data' : 'espn'
 const footballDataApiKey = process.env.FOOTBALL_DATA_API_KEY
+const firebaseProjectId = process.env.FIREBASE_PROJECT_ID
+const firebaseClientEmail = process.env.FIREBASE_CLIENT_EMAIL
+const firebasePrivateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n')
 const paypalBaseUrl =
   paypalEnvironment === 'live' ? 'https://api-m.paypal.com' : 'https://api-m.sandbox.paypal.com'
 const allowedOrigins = (process.env.APP_ORIGIN || 'http://127.0.0.1:5173')
@@ -20,6 +25,7 @@ const allowedOrigins = (process.env.APP_ORIGIN || 'http://127.0.0.1:5173')
   .filter(Boolean)
 const primaryAppOrigin = allowedOrigins[0] || 'http://127.0.0.1:5173'
 const confirmedStripeDeposits = new Map()
+const firebaseAdminConfigured = Boolean(firebaseProjectId && firebaseClientEmail && firebasePrivateKey)
 const supportedLiveLeagues = {
   'eng.1': {
     label: 'Premier League',
@@ -43,6 +49,18 @@ const supportedLiveLeagues = {
   },
 }
 
+const firebaseAdminApp = firebaseAdminConfigured
+  ? getApps()[0] ||
+    initializeApp({
+      credential: cert({
+        projectId: firebaseProjectId,
+        clientEmail: firebaseClientEmail,
+        privateKey: firebasePrivateKey,
+      }),
+    })
+  : null
+const adminDb = firebaseAdminApp ? getFirestore(firebaseAdminApp) : null
+
 function getStripeClient() {
   if (!stripeSecretKey) {
     throw new Error('Stripe card deposits are not configured yet on the backend.')
@@ -57,9 +75,127 @@ function rememberConfirmedStripeDeposit(paymentIntent) {
     amount: typeof paymentIntent.amount_received === 'number' ? paymentIntent.amount_received : paymentIntent.amount,
     currency: paymentIntent.currency,
     username: paymentIntent.metadata?.username || 'guest-user',
+    uid: paymentIntent.metadata?.uid || '',
     status: paymentIntent.status,
     receivedAt: new Date().toISOString(),
   })
+}
+
+function getAdminDb() {
+  if (!adminDb) {
+    throw new Error('Firebase Admin is not configured on the backend.')
+  }
+
+  return adminDb
+}
+
+function sumWalletTransactionCents(entries) {
+  return entries.reduce((total, entry) => total + Number(entry.data()?.amount || 0), 0)
+}
+
+async function persistDepositTransaction({ id, uid, username, amount, currency, provider, status, metadata = {} }) {
+  if (!uid || !adminDb) {
+    return null
+  }
+
+  const db = getAdminDb()
+  const userRef = db.collection('users').doc(uid)
+  const transactionRef = db.collection('walletTransactions').doc(`${provider}_${id}`)
+  const walletTransactionsQuery = db.collection('walletTransactions').where('uid', '==', uid)
+
+  await db.runTransaction(async (transaction) => {
+    const existingTransaction = await transaction.get(transactionRef)
+
+    if (existingTransaction.exists) {
+      return
+    }
+
+    const walletTransactions = await transaction.get(walletTransactionsQuery)
+    const currentBalanceCents = sumWalletTransactionCents(walletTransactions.docs)
+    const nextBalance = (currentBalanceCents + amount) / 100
+
+    transaction.set(
+      userRef,
+      {
+        uid,
+        username,
+        walletBalance: nextBalance,
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    )
+
+    transaction.set(transactionRef, {
+      uid,
+      username,
+      amount,
+      currency,
+      provider,
+      providerPaymentId: id,
+      kind: 'deposit',
+      status,
+      metadata,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    })
+  })
+
+  return { id: `${provider}_${id}` }
+}
+
+async function persistWithdrawalRequest({ uid, username, amount, currency = 'USD' }) {
+  if (!uid || !adminDb) {
+    throw new Error('Firebase Admin is not configured on the backend.')
+  }
+
+  const db = getAdminDb()
+  const userRef = db.collection('users').doc(uid)
+  const transactionRef = db.collection('walletTransactions').doc()
+  const walletTransactionsQuery = db.collection('walletTransactions').where('uid', '==', uid)
+  const amountCents = Math.round(amount * 100)
+
+  await db.runTransaction(async (transaction) => {
+    const walletTransactions = await transaction.get(walletTransactionsQuery)
+    const currentBalanceCents = sumWalletTransactionCents(walletTransactions.docs)
+
+    if (currentBalanceCents < amountCents) {
+      throw new Error('You cannot withdraw more than your available balance.')
+    }
+
+    const nextBalance = (currentBalanceCents - amountCents) / 100
+
+    transaction.set(transactionRef, {
+      uid,
+      username,
+      amount: -amountCents,
+      currency,
+      provider: 'manual_withdrawal',
+      providerPaymentId: transactionRef.id,
+      kind: 'withdrawal_request',
+      status: 'pending',
+      metadata: {
+        source: 'wallet_withdrawal_request',
+      },
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    })
+
+    transaction.set(
+      userRef,
+      {
+        uid,
+        username,
+        walletBalance: nextBalance,
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    )
+  })
+
+  return {
+    id: transactionRef.id,
+    status: 'pending',
+  }
 }
 
 function isPaypalConfigured() {
@@ -245,7 +381,7 @@ app.use(
   }),
 )
 
-app.post('/api/payments/stripe/webhook', express.raw({ type: 'application/json' }), (request, response) => {
+app.post('/api/payments/stripe/webhook', express.raw({ type: 'application/json' }), async (request, response) => {
   if (!stripeSecretKey || !stripeWebhookSecret) {
     response.status(503).json({ message: 'Stripe webhook is not configured yet on the backend.' })
     return
@@ -264,6 +400,18 @@ app.post('/api/payments/stripe/webhook', express.raw({ type: 'application/json' 
 
     if (event.type === 'payment_intent.succeeded') {
       rememberConfirmedStripeDeposit(event.data.object)
+      await persistDepositTransaction({
+        id: event.data.object.id,
+        uid: event.data.object.metadata?.uid || '',
+        username: event.data.object.metadata?.username || 'guest-user',
+        amount: typeof event.data.object.amount_received === 'number' ? event.data.object.amount_received : event.data.object.amount,
+        currency: event.data.object.currency,
+        provider: 'stripe',
+        status: event.data.object.status,
+        metadata: {
+          source: 'stripe_webhook',
+        },
+      })
     }
 
     if (event.type === 'checkout.session.completed') {
@@ -275,9 +423,25 @@ app.post('/api/payments/stripe/webhook', express.raw({ type: 'application/json' 
           amount: session.amount_total,
           currency: session.currency,
           username: session.metadata?.username || 'guest-user',
+          uid: session.metadata?.uid || '',
           status: session.payment_status,
           receivedAt: new Date().toISOString(),
         })
+
+        if (session.amount_total) {
+          await persistDepositTransaction({
+            id: session.id,
+            uid: session.metadata?.uid || '',
+            username: session.metadata?.username || 'guest-user',
+            amount: session.amount_total,
+            currency: session.currency || 'usd',
+            provider: 'stripe_checkout',
+            status: session.payment_status,
+            metadata: {
+              source: 'stripe_webhook',
+            },
+          })
+        }
       }
     }
 
@@ -298,6 +462,7 @@ app.get('/api/health', (_request, response) => {
     stripeWebhookConfigured: Boolean(stripeWebhookSecret),
     paypalConfigured: isPaypalConfigured(),
     footballDataProvider,
+    firebaseAdminConfigured,
   })
 })
 
@@ -317,6 +482,7 @@ app.get('/api/football/live', async (request, response) => {
 app.post('/api/payments/create-payment-intent', async (request, response) => {
   const amount = Number(request.body?.amount)
   const username = String(request.body?.username || 'guest-user')
+  const uid = String(request.body?.uid || '')
 
   if (!Number.isFinite(amount) || amount <= 0) {
     response.status(400).json({ message: 'Invalid deposit amount.' })
@@ -338,6 +504,7 @@ app.post('/api/payments/create-payment-intent', async (request, response) => {
       payment_method_types: ['card'],
       metadata: {
         username,
+        uid,
         amount: amount.toFixed(2),
       },
     })
@@ -368,6 +535,21 @@ app.get('/api/payments/stripe/payment-intent/:paymentIntentId', async (request, 
     const stripe = getStripeClient()
     const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId)
 
+    if (paymentIntent.status === 'succeeded') {
+      await persistDepositTransaction({
+        id: paymentIntent.id,
+        uid: paymentIntent.metadata?.uid || '',
+        username: paymentIntent.metadata?.username || 'guest-user',
+        amount: paymentIntent.amount_received || paymentIntent.amount,
+        currency: paymentIntent.currency,
+        provider: 'stripe',
+        status: paymentIntent.status,
+        metadata: {
+          source: 'payment_intent_lookup',
+        },
+      })
+    }
+
     response.json({
       confirmed: paymentIntent.status === 'succeeded',
       deposit: {
@@ -388,6 +570,7 @@ app.get('/api/payments/stripe/payment-intent/:paymentIntentId', async (request, 
 app.post('/api/payments/checkout-session', async (request, response) => {
   const amount = Number(request.body?.amount)
   const username = String(request.body?.username || 'guest-user')
+  const uid = String(request.body?.uid || '')
 
   if (!Number.isFinite(amount) || amount <= 0) {
     response.status(400).json({ message: 'Invalid deposit amount.' })
@@ -423,6 +606,7 @@ app.post('/api/payments/checkout-session', async (request, response) => {
       ],
       metadata: {
         username,
+        uid,
         amount: amount.toFixed(2),
       },
     })
@@ -445,6 +629,21 @@ app.get('/api/payments/checkout-session/:sessionId', async (request, response) =
     const stripe = getStripeClient()
     const session = await stripe.checkout.sessions.retrieve(request.params.sessionId)
 
+    if (session.payment_status === 'paid' && session.amount_total) {
+      await persistDepositTransaction({
+        id: session.id,
+        uid: session.metadata?.uid || '',
+        username: session.metadata?.username || 'guest-user',
+        amount: session.amount_total,
+        currency: session.currency || 'usd',
+        provider: 'stripe_checkout',
+        status: session.payment_status,
+        metadata: {
+          source: 'checkout_session_lookup',
+        },
+      })
+    }
+
     response.json({
       paymentStatus: session.payment_status,
       amountTotal: session.amount_total,
@@ -460,6 +659,7 @@ app.get('/api/payments/checkout-session/:sessionId', async (request, response) =
 app.post('/api/payments/paypal/order', async (request, response) => {
   const amount = Number(request.body?.amount)
   const username = String(request.body?.username || 'guest-user')
+  const uid = String(request.body?.uid || '')
 
   if (!Number.isFinite(amount) || amount <= 0) {
     response.status(400).json({ message: 'Invalid deposit amount.' })
@@ -479,6 +679,7 @@ app.post('/api/payments/paypal/order', async (request, response) => {
         purchase_units: [
           {
             reference_id: username,
+            custom_id: uid,
             description: 'Peer football betting wallet top-up',
             amount: {
               currency_code: 'USD',
@@ -527,6 +728,24 @@ app.post('/api/payments/paypal/capture', async (request, response) => {
     })
 
     const amount = capture.purchase_units?.[0]?.payments?.captures?.[0]?.amount || null
+    const captureId = capture.purchase_units?.[0]?.payments?.captures?.[0]?.id || orderId
+    const uid = capture.purchase_units?.[0]?.custom_id || ''
+    const username = capture.purchase_units?.[0]?.reference_id || 'guest-user'
+
+    if (capture.status === 'COMPLETED' && amount?.value) {
+      await persistDepositTransaction({
+        id: captureId,
+        uid,
+        username,
+        amount: Math.round(Number(amount.value) * 100),
+        currency: amount.currency_code || 'USD',
+        provider: 'paypal',
+        status: capture.status,
+        metadata: {
+          orderId,
+        },
+      })
+    }
 
     response.json({
       status: capture.status,
@@ -535,6 +754,41 @@ app.post('/api/payments/paypal/capture', async (request, response) => {
   } catch (error) {
     response.status(500).json({
       message: error instanceof Error ? error.message : 'PayPal capture failed.',
+    })
+  }
+})
+
+app.post('/api/wallet/withdrawals/request', async (request, response) => {
+  const amount = Number(request.body?.amount)
+  const uid = String(request.body?.uid || '')
+  const username = String(request.body?.username || 'guest-user')
+
+  if (!firebaseAdminConfigured) {
+    response.status(503).json({ message: 'Backend wallet withdrawals require Firebase Admin configuration.' })
+    return
+  }
+
+  if (!uid) {
+    response.status(400).json({ message: 'Missing user ID for the withdrawal request.' })
+    return
+  }
+
+  if (!Number.isFinite(amount) || amount <= 0) {
+    response.status(400).json({ message: 'Invalid withdrawal amount.' })
+    return
+  }
+
+  try {
+    const withdrawal = await persistWithdrawalRequest({
+      uid,
+      username,
+      amount,
+    })
+
+    response.json(withdrawal)
+  } catch (error) {
+    response.status(400).json({
+      message: error instanceof Error ? error.message : 'Could not create the withdrawal request.',
     })
   }
 })

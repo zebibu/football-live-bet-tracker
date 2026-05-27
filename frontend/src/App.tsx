@@ -10,6 +10,7 @@ import {
 import {
   describeAuthError,
   isFirebaseAuthReady,
+  isFirestoreReady,
   listenToAuthState,
   sendResetPasswordEmail,
   signInWithEmail,
@@ -20,18 +21,25 @@ import {
   type SocialProviderName,
 } from './auth/firebase'
 import { StripeCardDepositForm } from './components/StripeCardDepositForm'
+import {
+  acceptFirestoreOffer,
+  createFirestoreOffer,
+  ensureUserProfileDocument,
+  subscribeToDeals,
+  subscribeToOffers,
+  subscribeToUserProfile,
+  subscribeToWalletBalance,
+  type FirestoreDeal,
+  type FirestoreOffer,
+  type FirestoreUserProfile,
+} from './services/firestore'
 
 type Screen = 'lobby' | 'deposit' | 'withdrawal' | 'profile'
 type AuthMode = 'signin' | 'signup'
 type GameTab = 'today' | 'tomorrow' | 'upcoming'
 type DepositMethod = 'card' | 'paypal'
 
-type UserProfile = {
-  name: string
-  email: string
-  username: string
-  photoUrl?: string | null
-}
+type UserProfile = FirestoreUserProfile
 
 type BetGame = {
   id: string
@@ -44,26 +52,8 @@ type BetGame = {
   marketHint: string
 }
 
-type Offer = {
-  id: string
-  gameId: string
-  gameLabel: string
-  offeredBy: string
-  proposedOdds: number
-  stake: number
-  note: string
-  creatorFunded: boolean
-  status: 'open' | 'matched'
-}
-
-type Deal = {
-  id: string
-  gameLabel: string
-  opponent: string
-  agreedOdds: number
-  stake: number
-  status: 'locked' | 'settled'
-}
+type Offer = FirestoreOffer
+type Deal = FirestoreDeal
 
 const betGames: BetGame[] = [
   {
@@ -134,6 +124,7 @@ const seedOffers: Offer[] = [
     gameId: 'g1',
     gameLabel: 'Arsenal vs Brighton',
     offeredBy: 'Samuel',
+    offeredByUid: 'seed-samuel',
     proposedOdds: 1.92,
     stake: 25,
     note: 'I take Arsenal, you take the draw or Brighton.',
@@ -145,6 +136,7 @@ const seedOffers: Offer[] = [
     gameId: 'g3',
     gameLabel: 'Real Madrid vs Sevilla',
     offeredBy: 'Marta',
+    offeredByUid: 'seed-marta',
     proposedOdds: 2.15,
     stake: 18,
     note: 'Offer is ready if you want the goals side.',
@@ -183,6 +175,7 @@ function App() {
   const [footballError, setFootballError] = useState('')
   const [selectedLiveLeague, setSelectedLiveLeague] = useState(liveLeagueOptions[0].slug)
   const [firebaseReady] = useState(isFirebaseAuthReady())
+  const [firestoreReady] = useState(isFirestoreReady())
   const processedDepositRef = useRef<string | null>(null)
 
   const filteredGames = useMemo(
@@ -203,15 +196,60 @@ function App() {
     const unsubscribe = listenToAuthState((firebaseUser) => {
       if (!firebaseUser) {
         setUser(null)
+        setWalletBalance(40)
+        setOffers(seedOffers)
+        setDeals([])
         return
       }
 
-      setUser(toAuthProfile(firebaseUser))
+      setUser({
+        ...toAuthProfile(firebaseUser),
+        walletBalance: 40,
+      })
       setStatusMessage(`Welcome ${firebaseUser.displayName || firebaseUser.email || 'friend'}. Your peer betting lobby is ready.`)
+
+      if (firestoreReady) {
+        void ensureUserProfileDocument(firebaseUser).catch((error) => {
+          setStatusMessage(error instanceof Error ? error.message : 'Could not prepare your Firestore profile.')
+        })
+      }
     })
 
     return unsubscribe
-  }, [])
+  }, [firestoreReady])
+
+  useEffect(() => {
+    if (!user || !firestoreReady) {
+      return
+    }
+
+    const unsubscribeProfile = subscribeToUserProfile(user.uid, (profile) => {
+      if (!profile) {
+        return
+      }
+
+      setUser(profile)
+    })
+
+    const unsubscribeWalletBalance = subscribeToWalletBalance(user.uid, (nextWalletBalance) => {
+      setWalletBalance(nextWalletBalance)
+    })
+
+    const unsubscribeOffers = subscribeToOffers((nextOffers) => {
+      setOffers(nextOffers)
+    })
+
+    const unsubscribeDeals = subscribeToDeals(user.uid, (nextDeals) => {
+      setDeals(nextDeals)
+    })
+
+    return () => {
+      unsubscribeProfile()
+      unsubscribeWalletBalance()
+      unsubscribeOffers()
+      unsubscribeDeals()
+    }
+  }, [firestoreReady, user?.uid])
 
   useEffect(() => {
     let active = true
@@ -301,8 +339,6 @@ function App() {
           }
 
           if (data.paymentStatus === 'paid' && typeof data.amountTotal === 'number') {
-            const confirmedAmount = data.amountTotal
-            setWalletBalance((current) => current + confirmedAmount / 100)
             setStatusMessage(`Card deposit confirmed. ${acceptedCardBrands.join(' and ')} payments are now live on your wallet.`)
           } else {
             setStatusMessage('Card payment is still processing. Refresh again in a few moments if your wallet does not update.')
@@ -331,7 +367,6 @@ function App() {
           }
 
           if (data.status === 'COMPLETED' && data.amount?.value) {
-            setWalletBalance((current) => current + Number(data.amount?.value || 0))
             setStatusMessage('PayPal deposit completed and added to your wallet.')
           } else {
             setStatusMessage('PayPal approved the deposit, but completion is still pending.')
@@ -364,7 +399,15 @@ function App() {
           ? await signUpWithEmail(authEmail.trim(), authPassword, authName.trim())
           : await signInWithEmail(authEmail.trim(), authPassword)
 
-      setUser(toAuthProfile(firebaseUser))
+      setUser({
+        ...toAuthProfile(firebaseUser),
+        walletBalance: 40,
+      })
+
+      if (firestoreReady) {
+        await ensureUserProfileDocument(firebaseUser)
+      }
+
       setStatusMessage(`Welcome ${firebaseUser.displayName || firebaseUser.email || 'friend'}. Your peer betting lobby is ready.`)
       setAuthPassword('')
     } catch (error) {
@@ -383,7 +426,16 @@ function App() {
     try {
       setAuthBusy(providerName)
       const signedInUser = await signInWithSocialProvider(providerName)
-      setUser(toAuthProfile(signedInUser))
+
+      setUser({
+        ...toAuthProfile(signedInUser),
+        walletBalance: 40,
+      })
+
+      if (firestoreReady) {
+        await ensureUserProfileDocument(signedInUser)
+      }
+
       setStatusMessage(`Welcome ${signedInUser.displayName || signedInUser.email || 'friend'}. Your peer betting lobby is ready.`)
     } catch (error) {
       setStatusMessage(describeAuthError(error))
@@ -423,7 +475,7 @@ function App() {
     setStatusMessage('You have been signed out.')
   }
 
-  function createOffer() {
+  async function createOffer() {
     if (!selectedGame) {
       return
     }
@@ -442,6 +494,23 @@ function App() {
       return
     }
 
+    if (firestoreReady && user) {
+      try {
+        await createFirestoreOffer(user, {
+          gameId: selectedGame.id,
+          gameLabel: `${selectedGame.home} vs ${selectedGame.away}`,
+          proposedOdds: oddsValue,
+          stake: stakeValue,
+          note: offerNote || 'Custom offer ready for a friend.',
+        })
+        setOfferNote('')
+        setStatusMessage('Your offer is live and your stake is locked until matched or cancelled.')
+      } catch (error) {
+        setStatusMessage(error instanceof Error ? error.message : 'Could not create your offer.')
+      }
+      return
+    }
+
     setWalletBalance((current) => current - stakeValue)
     setOffers((current) => [
       {
@@ -449,6 +518,7 @@ function App() {
         gameId: selectedGame.id,
         gameLabel: `${selectedGame.home} vs ${selectedGame.away}`,
         offeredBy: user?.name || 'You',
+        offeredByUid: user?.uid || 'guest-user',
         proposedOdds: oddsValue,
         stake: stakeValue,
         note: offerNote || 'Custom offer ready for a friend.',
@@ -461,10 +531,20 @@ function App() {
     setStatusMessage('Your offer is live and your stake is locked until matched or cancelled.')
   }
 
-  function acceptOffer(offer: Offer) {
+  async function acceptOffer(offer: Offer) {
     if (walletBalance < offer.stake) {
       setStatusMessage('You need to deposit before you can match this deal.')
       setActiveScreen('deposit')
+      return
+    }
+
+    if (firestoreReady && user) {
+      try {
+        await acceptFirestoreOffer(user, offer)
+        setStatusMessage('Deal matched. Both sides are funded and the bet is locked on that game.')
+      } catch (error) {
+        setStatusMessage(error instanceof Error ? error.message : 'Could not accept this offer.')
+      }
       return
     }
 
@@ -503,6 +583,7 @@ function App() {
         },
         body: JSON.stringify({
           amount,
+          uid: user?.uid || '',
           username: user?.username || 'guest-user',
         }),
       })
@@ -525,7 +606,7 @@ function App() {
     }
   }
 
-  function requestWithdrawal() {
+  async function requestWithdrawal() {
     const amount = Number(withdrawAmount)
 
     if (!Number.isFinite(amount) || amount <= 0) {
@@ -538,8 +619,35 @@ function App() {
       return
     }
 
-    setWalletBalance((current) => current - amount)
-    setStatusMessage('Withdrawal request queued. In a real build this would need payout verification on the backend.')
+    try {
+      setDepositBusy('confirm')
+      const response = await fetch(`${apiBaseUrl}/wallet/withdrawals/request`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          amount,
+          uid: user?.uid || '',
+          username: user?.username || 'guest-user',
+        }),
+      })
+      const data = (await response.json()) as { message?: string; status?: string }
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Could not save the withdrawal request.')
+      }
+
+      setStatusMessage(
+        data.status === 'pending'
+          ? 'Withdrawal request queued and written to your wallet transaction history.'
+          : 'Withdrawal request received.',
+      )
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : 'Could not save the withdrawal request.')
+    } finally {
+      setDepositBusy(null)
+    }
   }
 
   if (!user) {
@@ -594,6 +702,8 @@ function App() {
             </div>
             {!firebaseReady ? (
               <p className="helper-copy">Firebase is not configured yet. Add `VITE_FIREBASE_*` values in your local `.env` and enable Email/Password, Google, Facebook, and Apple in Firebase Authentication.</p>
+            ) : !firestoreReady ? (
+              <p className="helper-copy">Authentication is ready, but Firestore is not enabled yet. Create a Firestore database in Firebase to persist wallet balance, offers, and deals.</p>
             ) : null}
           </div>
 
@@ -768,12 +878,12 @@ function App() {
                     <Elements stripe={stripePromise}>
                       <StripeCardDepositForm
                         amount={depositAmount}
+                        userId={user?.uid || ''}
                         username={user?.username || 'guest-user'}
                         cardholderName={user?.name || ''}
                         apiBaseUrl={apiBaseUrl}
                         busy={depositBusy !== null}
-                        onSuccess={(amount) => {
-                          setWalletBalance((current) => current + amount)
+                        onSuccess={() => {
                           setStatusMessage(`Card deposit confirmed. ${acceptedCardBrands.join(' and ')} payments are now live on your wallet.`)
                         }}
                         onError={(message) => {
@@ -838,7 +948,7 @@ function App() {
               <span>Withdrawal amount</span>
               <input type="number" min="1" step="0.01" value={withdrawAmount} onChange={(event) => setWithdrawAmount(event.target.value)} />
             </label>
-            <button type="button" className="primary-button" onClick={requestWithdrawal}>
+            <button type="button" className="primary-button" onClick={() => void requestWithdrawal()}>
               Request withdrawal
             </button>
           </section>
@@ -894,7 +1004,7 @@ function App() {
                   <span>Offer note</span>
                   <textarea value={offerNote} onChange={(event) => setOfferNote(event.target.value)} placeholder="Explain the side you want and what your friend gets." />
                 </label>
-                <button type="button" className="primary-button" onClick={createOffer}>
+                <button type="button" className="primary-button" onClick={() => void createOffer()}>
                   Lock and send offer
                 </button>
               </article>
@@ -914,7 +1024,7 @@ function App() {
                     <strong>{offer.gameLabel}</strong>
                     <p>{offer.offeredBy} offers {offer.proposedOdds.toFixed(2)} for stake {offer.stake.toFixed(2)}</p>
                     <p>{offer.note}</p>
-                    <button type="button" className="secondary-button" onClick={() => acceptOffer(offer)}>
+                    <button type="button" className="secondary-button" onClick={() => void acceptOffer(offer)}>
                       Fund and accept
                     </button>
                   </article>
