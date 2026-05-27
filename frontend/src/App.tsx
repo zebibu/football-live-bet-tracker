@@ -189,6 +189,7 @@ function App() {
     () => betGames.filter((game) => game.dayLabel === selectedTab),
     [selectedTab],
   )
+  const depositAmountValue = Number.isFinite(Number(depositAmount)) ? Math.max(Number(depositAmount), 0) : 0
   const selectedGame = filteredGames.find((game) => game.id === selectedGameId) || filteredGames[0] || betGames[0]
   const selectedGameOffers = offers.filter((offer) => offer.gameId === selectedGame?.id && offer.status === 'open')
 
@@ -720,79 +721,112 @@ function App() {
 
         {activeScreen === 'deposit' ? (
           <section className="content-card stack-gap">
-            <h2>Deposit</h2>
-            <p>Choose the payment method your friend will trust fastest. The wallet updates after the provider confirms the deposit.</p>
-            <label className="field-block">
-              <span>Deposit amount</span>
-              <input type="number" min="1" step="0.01" value={depositAmount} onChange={(event) => setDepositAmount(event.target.value)} />
-            </label>
-
-            <div className="payment-method-grid">
-              <button
-                type="button"
-                className={depositMethod === 'card' ? 'payment-method-card active' : 'payment-method-card'}
-                onClick={() => setDepositMethod('card')}
-              >
-                <span>Bank card</span>
-                <strong>Visa and Mastercard</strong>
-                <p>Secure Stripe checkout with card entry on the hosted payment page.</p>
-              </button>
-              <button
-                type="button"
-                className={depositMethod === 'paypal' ? 'payment-method-card active' : 'payment-method-card'}
-                onClick={() => setDepositMethod('paypal')}
-              >
-                <span>Wallet</span>
-                <strong>PayPal</strong>
-                <p>Redirect to PayPal, approve the deposit, then return to your wallet.</p>
-              </button>
+            <div className="section-heading-row deposit-heading">
+              <div>
+                <span className="eyebrow">Add funds</span>
+                <h2>Deposit</h2>
+                <p>Enter an amount, choose a payment method, and complete the provider step to top up your wallet.</p>
+              </div>
             </div>
 
-            {depositMethod === 'card' ? (
-              stripePromise ? (
-                <Elements stripe={stripePromise}>
-                  <StripeCardDepositForm
-                    amount={depositAmount}
-                    username={user?.username || 'guest-user'}
-                    cardholderName={user?.name || ''}
-                    apiBaseUrl={apiBaseUrl}
-                    busy={depositBusy !== null}
-                    onSuccess={(amount) => {
-                      setWalletBalance((current) => current + amount)
-                      setStatusMessage(`Card deposit confirmed. ${acceptedCardBrands.join(' and ')} payments are now live on your wallet.`)
-                    }}
-                    onError={(message) => {
-                      setStatusMessage(message)
-                    }}
-                  />
-                </Elements>
-              ) : (
-                <div className="payment-panel stack-gap">
-                  <div className="brand-strip">
-                    {acceptedCardBrands.map((brand) => (
-                      <span key={brand} className="brand-pill">{brand}</span>
-                    ))}
-                  </div>
-                  <p className="helper-copy">
-                    Add `VITE_STRIPE_PUBLISHABLE_KEY` to `frontend/.env` so card deposits can load real Stripe fields.
-                  </p>
-                </div>
-              )
-            ) : null}
+            <div className="deposit-layout">
+              <div className="stack-gap">
+                <label className="field-block">
+                  <span>Deposit amount</span>
+                  <input type="number" min="1" step="0.01" value={depositAmount} onChange={(event) => setDepositAmount(event.target.value)} />
+                </label>
 
-            {depositMethod === 'paypal' ? (
-              <div className="payment-panel stack-gap">
-                <p className="helper-copy">
-                  PayPal opens in a secure approval page. After approval you are returned here and the wallet is updated.
-                </p>
-                <button type="button" className="primary-button" onClick={() => void beginPayPalDeposit()} disabled={depositBusy !== null}>
-                  {depositBusy === 'paypal' ? 'Opening PayPal...' : 'Continue with PayPal'}
-                </button>
+                <div className="deposit-steps">
+                  <span className="step-pill active">1. Enter amount</span>
+                  <span className="step-pill active">2. Pick method</span>
+                  <span className="step-pill">3. Confirm payment</span>
+                </div>
+
+                <div className="payment-method-grid">
+                  <button
+                    type="button"
+                    className={depositMethod === 'card' ? 'payment-method-card active' : 'payment-method-card'}
+                    onClick={() => setDepositMethod('card')}
+                  >
+                    <span>Bank card</span>
+                    <strong>Visa and Mastercard</strong>
+                    <p>Pay directly inside the app with secure Stripe card fields.</p>
+                  </button>
+                  <button
+                    type="button"
+                    className={depositMethod === 'paypal' ? 'payment-method-card active' : 'payment-method-card'}
+                    onClick={() => setDepositMethod('paypal')}
+                  >
+                    <span>Wallet</span>
+                    <strong>PayPal</strong>
+                    <p>Switch to PayPal, approve the payment, and return to your wallet.</p>
+                  </button>
+                </div>
+
+                {depositMethod === 'card' ? (
+                  stripePromise ? (
+                    <Elements stripe={stripePromise}>
+                      <StripeCardDepositForm
+                        amount={depositAmount}
+                        username={user?.username || 'guest-user'}
+                        cardholderName={user?.name || ''}
+                        apiBaseUrl={apiBaseUrl}
+                        busy={depositBusy !== null}
+                        onSuccess={(amount) => {
+                          setWalletBalance((current) => current + amount)
+                          setStatusMessage(`Card deposit confirmed. ${acceptedCardBrands.join(' and ')} payments are now live on your wallet.`)
+                        }}
+                        onError={(message) => {
+                          setStatusMessage(message)
+                        }}
+                      />
+                    </Elements>
+                  ) : (
+                    <div className="payment-panel stack-gap">
+                      <div className="brand-strip">
+                        {acceptedCardBrands.map((brand) => (
+                          <span key={brand} className="brand-pill">{brand}</span>
+                        ))}
+                      </div>
+                      <p className="helper-copy">
+                        Add `VITE_STRIPE_PUBLISHABLE_KEY` to `frontend/.env` so real Stripe card fields can load here.
+                      </p>
+                    </div>
+                  )
+                ) : null}
+
+                {depositMethod === 'paypal' ? (
+                  <div className="payment-panel stack-gap">
+                    <div className="payment-note-list">
+                      <p>PayPal opens in a secure approval page.</p>
+                      <p>After approval you return here and the wallet updates.</p>
+                    </div>
+                    <button type="button" className="primary-button" onClick={() => void beginPayPalDeposit()} disabled={depositBusy !== null}>
+                      {depositBusy === 'paypal' ? 'Opening PayPal...' : 'Continue with PayPal'}
+                    </button>
+                  </div>
+                ) : null}
               </div>
-            ) : null}
-            <p className="helper-copy">
-              Real deposits require backend payment credentials. Card deposits use `STRIPE_SECRET_KEY`. PayPal deposits use `PAYPAL_CLIENT_ID` and `PAYPAL_CLIENT_SECRET`.
-            </p>
+
+              <aside className="deposit-summary-card stack-gap">
+                <div>
+                  <span className="eyebrow">Deposit summary</span>
+                  <h3>{depositAmountValue.toFixed(2)}</h3>
+                  <p>Selected method: {depositMethod === 'card' ? 'Visa / Mastercard' : 'PayPal'}</p>
+                </div>
+
+                <div className="payment-note-list">
+                  <p>Your available wallet before deposit: {walletBalance.toFixed(2)}</p>
+                  <p>Funds become usable after the provider confirms the payment.</p>
+                  <p>{depositMethod === 'card' ? 'Card details stay inside Stripe Elements.' : 'PayPal approval happens on PayPal.'}</p>
+                </div>
+
+                <div className="provider-note-box">
+                  <strong>Setup needed</strong>
+                  <p>Card deposits need `STRIPE_SECRET_KEY` and `VITE_STRIPE_PUBLISHABLE_KEY`. PayPal needs `PAYPAL_CLIENT_ID` and `PAYPAL_CLIENT_SECRET`.</p>
+                </div>
+              </aside>
+            </div>
           </section>
         ) : null}
 

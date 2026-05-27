@@ -63,7 +63,11 @@
 .brand-strip,
 .card-placeholder-shell,
 .card-placeholder-grid,
-.banner-copy {
+.banner-copy,
+.deposit-layout,
+.deposit-summary-card,
+.deposit-steps,
+.payment-note-list {
   display: grid;
   gap: 16px;
 }
@@ -365,6 +369,10 @@
   align-items: center;
 }
 
+.deposit-heading p {
+  margin-top: 8px;
+}
+
 .compact-row {
   align-items: flex-end;
 }
@@ -393,6 +401,81 @@
   border-radius: 20px;
   background: rgba(255, 255, 255, 0.52);
   border: 1px solid rgba(41, 53, 48, 0.08);
+}
+
+.deposit-layout {
+  grid-template-columns: minmax(0, 1.35fr) minmax(260px, 0.65fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.deposit-summary-card {
+  padding: 18px;
+  border-radius: 20px;
+  background: rgba(24, 124, 79, 0.05);
+  border: 1px solid rgba(24, 124, 79, 0.14);
+  position: sticky;
+  top: 24px;
+}
+
+.deposit-summary-card h3 {
+  font-size: clamp(2rem, 4vw, 2.75rem);
+}
+
+.deposit-steps {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.step-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 12px;
+  border-radius: 999px;
+  background: rgba(41, 53, 48, 0.06);
+  color: var(--muted);
+  font-weight: 700;
+  font-size: 0.92rem;
+  text-align: center;
+}
+
+.step-pill.active {
+  background: rgba(24, 124, 79, 0.1);
+  color: var(--accent-strong);
+}
+
+.payment-note-list {
+  gap: 10px;
+}
+
+.payment-note-list p {
+  padding-left: 16px;
+  position: relative;
+}
+
+.payment-note-list p::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.65em;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent-strong);
+  opacity: 0.5;
+}
+
+.provider-note-box {
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px dashed rgba(210, 134, 35, 0.28);
+  background: rgba(210, 134, 35, 0.08);
+}
+
+.provider-note-box strong {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--heading);
 }
 
 .card-placeholder-shell {
@@ -502,7 +585,8 @@
   }
 
   .top-banner,
-  .lobby-grid {
+  .lobby-grid,
+  .deposit-layout {
     grid-template-columns: 1fr;
   }
 
@@ -559,7 +643,9 @@
   .payment-method-grid,
   .offer-form-grid,
   .info-grid,
-  .card-placeholder-grid {
+  .card-placeholder-grid,
+  .deposit-layout,
+  .deposit-steps {
     grid-template-columns: 1fr;
   }
 
@@ -570,6 +656,10 @@
   .banner-note {
     min-width: 0;
     max-width: none;
+  }
+
+  .deposit-summary-card {
+    position: static;
   }
 
   .menu-list {
@@ -625,7 +715,9 @@
   .offer-form-grid,
   .info-grid,
   .card-placeholder-grid,
-  .lobby-grid {
+  .lobby-grid,
+  .deposit-layout,
+  .deposit-steps {
     grid-template-columns: 1fr;
   }
 
@@ -652,6 +744,10 @@
 
   .card-field-wide {
     grid-column: auto;
+  }
+
+  .deposit-summary-card {
+    position: static;
   }
 
   .brand-strip {
