@@ -1,0 +1,455 @@
+.app-shell {
+  display: grid;
+  gap: 24px;
+  padding: 28px;
+}
+
+.hero-panel,
+.content-grid {
+  display: grid;
+  gap: 24px;
+}
+
+.hero-panel {
+  .auth-shell,
+  .dashboard-shell {
+    min-height: 100vh;
+  }
+
+  .auth-shell {
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(360px, 0.9fr);
+    gap: 24px;
+    padding: 28px;
+  }
+
+  .auth-hero,
+  .auth-panel,
+  .side-menu,
+  .content-card,
+  .top-banner {
+    border: 1px solid var(--border);
+    border-radius: 28px;
+    background: var(--panel-bg);
+    box-shadow: var(--shadow);
+  }
+
+  .auth-hero,
+  .auth-panel,
+  .side-menu,
+  .content-card,
+  .top-banner,
+  .profile-card {
+    padding: 28px;
+  }
+
+  .auth-hero {
+    display: grid;
+    align-content: center;
+    gap: 18px;
+    background:
+      radial-gradient(circle at top right, rgba(239, 180, 43, 0.28), transparent 30%),
+      radial-gradient(circle at left center, rgba(24, 124, 79, 0.16), transparent 35%),
+      var(--panel-bg);
+  }
+
+  .auth-panel,
+  .stack-gap,
+  .stack-column,
+  .games-list,
+  .score-list,
+  .deals-list,
+  .menu-list,
+  .auth-form,
+  .offer-builder,
+  .social-auth-block,
+  .social-auth-grid {
+    display: grid;
+    gap: 16px;
+  }
+
+  .auth-switcher,
+  .tab-strip,
+  .offer-form-grid,
+  .info-grid,
+  .lobby-grid,
+  .section-heading-row,
+  .top-banner,
+  .field-inline,
+  .menu-list button,
+  .signout-button {
+    display: flex;
+    gap: 12px;
+  }
+
+  .auth-switcher button,
+  .tab-strip button,
+  .menu-list button,
+  .signout-button,
+  .secondary-button,
+  .primary-button,
+  .auth-form button,
+  .game-card,
+  .text-button {
+    border: 0;
+    border-radius: 18px;
+    padding: 12px 16px;
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .auth-switcher button,
+  .tab-strip button,
+  .menu-list button,
+  .secondary-button,
+  .game-card,
+  .social-auth-button {
+    background: rgba(24, 124, 79, 0.08);
+    color: var(--accent-strong);
+  }
+
+  .auth-switcher button.active,
+  .tab-strip button.active,
+  .menu-list button.active,
+  .primary-button,
+  .auth-form button,
+  .signout-button {
+    background: linear-gradient(135deg, var(--accent-strong), var(--accent));
+    color: #fffaf1;
+  }
+
+  .auth-form label,
+  .field-block {
+    display: grid;
+    gap: 8px;
+  }
+
+  .auth-form span,
+  .field-block span,
+  .field-inline span,
+  .profile-card p,
+  .helper-copy,
+  .banner-note,
+  .game-card span,
+  .score-card span {
+    color: var(--muted);
+  }
+
+  .auth-form input,
+  .field-block input,
+  .field-block textarea,
+  .field-inline select {
+    width: 100%;
+    border: 1px solid rgba(41, 53, 48, 0.12);
+    border-radius: 16px;
+    padding: 13px 14px;
+    background: rgba(255, 255, 255, 0.78);
+    color: var(--heading);
+  }
+
+  .social-auth-button {
+    text-align: left;
+    border: 1px solid rgba(24, 124, 79, 0.12);
+    border-radius: 18px;
+    padding: 14px 16px;
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .social-auth-button:disabled,
+  .auth-form button:disabled {
+    opacity: 0.72;
+    cursor: wait;
+  }
+
+  .text-button {
+    padding: 0;
+    justify-self: start;
+    background: transparent;
+    color: var(--accent-strong);
+    text-decoration: underline;
+    text-underline-offset: 0.18em;
+  }
+
+  .field-block textarea {
+    min-height: 100px;
+    resize: vertical;
+  }
+
+  .dashboard-shell {
+    display: grid;
+    grid-template-columns: 290px minmax(0, 1fr);
+    gap: 24px;
+    padding: 24px;
+  }
+
+  .side-menu {
+    display: grid;
+    align-content: space-between;
+    gap: 24px;
+    background:
+      linear-gradient(180deg, rgba(34, 58, 43, 0.98), rgba(18, 31, 23, 0.98)),
+      var(--panel-strong);
+    color: #f6efe2;
+  }
+
+  .profile-card {
+    border-radius: 24px;
+    background: rgba(255, 255, 255, 0.07);
+  }
+
+  .profile-avatar {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid rgba(255, 255, 255, 0.16);
+    margin-bottom: 10px;
+  }
+
+  .profile-card h2,
+  .profile-card strong,
+  .side-menu .eyebrow,
+  .signout-button {
+    color: #f6efe2;
+  }
+
+  .menu-list {
+    align-content: start;
+  }
+
+  .menu-list button,
+  .signout-button {
+    justify-content: flex-start;
+  }
+
+  .main-stage {
+    display: grid;
+    gap: 20px;
+  }
+
+  .top-banner {
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+
+  .banner-note {
+    max-width: 320px;
+    padding: 14px 16px;
+    border-radius: 20px;
+    background: rgba(24, 124, 79, 0.08);
+  }
+
+  .lobby-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(340px, 0.8fr);
+    gap: 20px;
+  }
+
+  .games-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .game-card,
+  .deal-card,
+  .score-card,
+  .info-grid article {
+    border: 1px solid rgba(41, 53, 48, 0.08);
+    border-radius: 22px;
+    background: rgba(255, 250, 241, 0.82);
+    padding: 18px;
+  }
+
+  .game-card {
+    text-align: left;
+  }
+
+  .game-card.active {
+    border-color: rgba(24, 124, 79, 0.35);
+    box-shadow: 0 12px 30px rgba(24, 124, 79, 0.12);
+  }
+
+  .game-card strong,
+  .deal-card strong,
+  .score-card strong,
+  .info-grid strong {
+    display: block;
+    margin: 8px 0;
+    color: var(--heading);
+  }
+
+  .compact-row {
+    align-items: end;
+  }
+
+  .info-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  @media (max-width: 1100px) {
+    .auth-shell,
+    .dashboard-shell,
+    .lobby-grid,
+    .games-list,
+    .info-grid,
+    .offer-form-grid,
+    .top-banner {
+      grid-template-columns: 1fr;
+    }
+
+    .dashboard-shell {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 720px) {
+    .auth-shell,
+    .dashboard-shell {
+      padding: 16px;
+    }
+
+    .auth-hero,
+    .auth-panel,
+    .side-menu,
+    .content-card,
+    .top-banner,
+    .profile-card {
+      padding: 20px;
+      border-radius: 22px;
+    }
+
+    .section-heading-row,
+    .field-inline,
+    .tab-strip,
+    .auth-switcher {
+      flex-direction: column;
+      align-items: stretch;
+    }
+  }
+.info-card,
+.highlights-list li,
+.live-result-card,
+.table-row {
+  border-radius: 24px;
+  border: 1px solid rgba(41, 53, 48, 0.08);
+  background: rgba(255, 250, 241, 0.82);
+  padding: 18px;
+}
+
+.match-card h3,
+.info-card h3,
+.highlights-list strong {
+  margin: 12px 0 10px;
+  font-size: 1.08rem;
+}
+
+.match-market {
+  display: inline-flex;
+  padding: 8px 10px;
+  border-radius: 999px;
+  background: rgba(24, 124, 79, 0.08);
+  color: var(--accent-strong);
+  font-weight: 700;
+}
+
+.odds-row {
+  margin: 16px 0 12px;
+}
+
+.odds-row strong {
+  font-size: 1.4rem;
+  color: var(--heading);
+}
+
+.bullet-strip,
+.highlights-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.bullet-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.bullet-strip li {
+  padding: 8px 10px;
+  border-radius: 999px;
+  background: rgba(41, 53, 48, 0.06);
+  font-size: 0.84rem;
+}
+
+.highlights-list li {
+  display: grid;
+  gap: 8px;
+}
+
+.live-label {
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent-strong);
+}
+
+.live-result-card h3 {
+  margin: 10px 0 8px;
+}
+
+.table-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.table-row strong {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--heading);
+}
+
+.table-row span {
+  font-weight: 800;
+  color: var(--accent-strong);
+}
+
+@media (max-width: 1024px) {
+  .app-shell {
+    padding: 18px;
+  }
+
+  .hero-panel,
+  .content-grid,
+  .matches-grid,
+  .pulse-grid,
+  .filters-bar {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .hero-copy,
+  .panel,
+  .bet-slip-card {
+    padding: 20px;
+    border-radius: 22px;
+  }
+
+  .card-topline,
+  .slip-item,
+  .slip-footer,
+  .section-heading,
+  .odds-row,
+  .table-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .live-match-meta {
+    justify-items: start;
+  }
+}
