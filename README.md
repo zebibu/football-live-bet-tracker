@@ -56,7 +56,7 @@ Do not reuse any secret key that was pasted into chat. Revoke it in Stripe and c
 Copy `backend/.env.example` to `backend/.env` and set:
 
 ```env
-APP_ORIGIN=http://127.0.0.1:5173
+APP_ORIGIN=http://127.0.0.1:5173,https://zebibu.github.io/football-live-bet-tracker
 STRIPE_SECRET_KEY=your_fresh_secret_key_here
 ```
 
@@ -69,6 +69,7 @@ The app now has email/password, Google, Facebook, and Apple sign-in through Fire
 Copy `frontend/.env.example` to `frontend/.env` and add these values:
 
 ```env
+VITE_API_BASE_URL=http://127.0.0.1:8787/api
 VITE_FIREBASE_API_KEY=your_firebase_web_api_key
 VITE_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
 VITE_FIREBASE_PROJECT_ID=your-project-id
@@ -100,3 +101,34 @@ npm run build
 This repository includes a GitHub Pages workflow in `.github/workflows/deploy.yml` for the frontend build in `frontend/`.
 
 The backend still needs its own deployment target such as Render, Railway, Fly.io, or a VPS.
+
+### Render backend
+
+- `render.yaml` is included at the repo root.
+- Create a new Render Web Service from this repo.
+- Render should detect `rootDir: backend`, then run `npm install` and `npm start`.
+- Set `APP_ORIGIN` to your allowed frontend URLs, separated by commas.
+- Set `STRIPE_SECRET_KEY` in the Render environment.
+
+Example:
+
+```env
+APP_ORIGIN=http://127.0.0.1:5173,https://zebibu.github.io/football-live-bet-tracker
+```
+
+### Railway backend
+
+- `railway.json` is included at the repo root.
+- In Railway, set the service root directory to `backend`.
+- Railway will run `npm install` and `npm start`.
+- Set the same `APP_ORIGIN` and `STRIPE_SECRET_KEY` environment variables.
+
+### Frontend production env
+
+When the backend is deployed, point the frontend to it in `frontend/.env`:
+
+```env
+VITE_API_BASE_URL=https://your-backend-domain/api
+```
+
+That is required because GitHub Pages cannot proxy `/api` to your backend.

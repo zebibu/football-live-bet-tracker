@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: football-live-bet-backend
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: APP_ORIGIN
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false

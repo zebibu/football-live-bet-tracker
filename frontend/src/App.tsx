@@ -149,6 +149,8 @@ const seedOffers: Offer[] = [
   },
 ]
 
+const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '')
+
 function App() {
   const [authMode, setAuthMode] = useState<AuthMode>('signin')
   const [user, setUser] = useState<UserProfile | null>(null)
@@ -377,7 +379,7 @@ function App() {
     }
 
     try {
-      const response = await fetch('/api/payments/checkout-session', {
+      const response = await fetch(`${apiBaseUrl}/payments/checkout-session`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

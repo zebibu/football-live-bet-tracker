@@ -6,9 +6,24 @@ import Stripe from 'stripe'
 const app = express()
 const port = Number(process.env.PORT || 8787)
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY
-const appOrigin = process.env.APP_ORIGIN || 'http://127.0.0.1:5173'
+const allowedOrigins = (process.env.APP_ORIGIN || 'http://127.0.0.1:5173')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean)
+const primaryAppOrigin = allowedOrigins[0] || 'http://127.0.0.1:5173'
 
-app.use(cors({ origin: appOrigin }))
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true)
+        return
+      }
+
+      callback(new Error('Origin not allowed by CORS'))
+    },
+  }),
+)
 app.use(express.json())
 
 app.get('/api/health', (_request, response) => {
@@ -35,8 +50,8 @@ app.post('/api/payments/checkout-session', async (request, response) => {
     const stripe = new Stripe(stripeSecretKey)
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
-      success_url: `${appOrigin}/?deposit=success`,
-      cancel_url: `${appOrigin}/?deposit=cancelled`,
+      success_url: `${primaryAppOrigin}/?deposit=success`,
+      cancel_url: `${primaryAppOrigin}/?deposit=cancelled`,
       line_items: [
         {
           quantity: 1,
