@@ -1,33 +1,50 @@
-# Betting
+# Football Live Bet Tracker
 
-A simple, friendly football betting companion built with React, TypeScript, and Vite.
+A simple football companion app for tracking your own bet ideas, entering custom stake and odds, and watching live score updates in one screen.
 
-## What it does
+## Live Demo
 
-- Shows a clean dashboard for featured football picks.
-- Includes league, team, and date filters for the featured match cards.
-- Polls live football scoreboard data for major leagues.
-- Lets you enter your own stake and odds instead of depending on a bookmaker app.
+- Repository: https://github.com/zebibu/football-live-bet-tracker
+- GitHub Pages: https://zebibu.github.io/football-live-bet-tracker/
 
-## Run locally
+## Preview
 
-1. Open the folder `C:/Users/zebib/Desktop/betting` in VS Code.
-2. Run `npm install` if dependencies are missing.
-3. Start the app with `npm run dev`.
-4. Open the local URL shown by Vite, usually `http://localhost:5173`.
+![Football Live Bet Tracker preview](./.github/assets/app-preview.png)
 
-You can also use the included VS Code tasks:
+## Features
 
-- `dev`
-- `build`
+- Live football scoreboard feed with league switching.
+- Quick calculator for your own stake, odds, return, and profit.
+- Friendly featured match cards with league, team, and date filters.
+- Mobile-friendly layout built with React, TypeScript, and Vite.
 
-## Live football source
+## Live Data Source
 
-The live panel currently uses ESPN public scoreboard JSON endpoints for leagues such as:
+The live panel currently uses ESPN public scoreboard JSON endpoints for:
 
 - Premier League
 - La Liga
 - Serie A
 - Ligue 1
 
-If you later switch to another football provider, the change should stay mostly inside `src/services/football.ts`.
+The integration surface is isolated in `src/services/football.ts`, so the provider can be swapped later.
+
+## Run Locally
+
+```bash
+npm install
+npm run dev
+```
+
+Then open `http://localhost:5173`.
+
+## Build
+
+```bash
+npm run build
+```
+
+## Deploy
+
+This repository includes a GitHub Pages workflow in `.github/workflows/deploy.yml`.
+Every push to `main` triggers a production build and deploys the app to GitHub Pages.
