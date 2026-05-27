@@ -59,12 +59,27 @@ Copy `backend/.env.example` to `backend/.env` and set:
 ```env
 APP_ORIGIN=http://127.0.0.1:5173,https://zebibu.github.io/football-live-bet-tracker
 STRIPE_SECRET_KEY=your_fresh_secret_key_here
+STRIPE_WEBHOOK_SECRET=your_stripe_webhook_signing_secret
 PAYPAL_CLIENT_ID=your_paypal_client_id
 PAYPAL_CLIENT_SECRET=your_paypal_client_secret
 PAYPAL_ENVIRONMENT=sandbox
 ```
 
 Card deposits require Stripe. PayPal deposits require a PayPal REST app. Both payment methods redirect the user to the provider and return to the app after approval.
+
+### Stripe webhook setup
+
+The backend now includes a verified Stripe webhook endpoint at `/api/payments/stripe/webhook`.
+
+Use Stripe CLI locally:
+
+```bash
+stripe listen --forward-to http://127.0.0.1:8787/api/payments/stripe/webhook
+```
+
+Stripe will print a signing secret that starts with `whsec_`. Put that only in `backend/.env` as `STRIPE_WEBHOOK_SECRET`.
+
+The webhook currently confirms successful Stripe payments server-side and keeps recent confirmations in backend memory. For a production build, the next step after this is persisting those confirmations in a database-backed wallet ledger.
 
 ## Social sign-in setup
 
@@ -104,6 +119,7 @@ The deposit screen now supports:
 - PayPal via PayPal Orders API
 
 The app redirects the user to the selected provider and confirms the payment when the provider returns to the app.
+Stripe payments now also have a server-side webhook confirmation path.
 
 ## Build
 

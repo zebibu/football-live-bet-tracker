@@ -6,6 +6,7 @@ import Stripe from 'stripe'
 const app = express()
 const port = Number(process.env.PORT || 8787)
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY
+const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET
 const paypalClientId = process.env.PAYPAL_CLIENT_ID
 const paypalClientSecret = process.env.PAYPAL_CLIENT_SECRET
 const paypalEnvironment = process.env.PAYPAL_ENVIRONMENT === 'live' ? 'live' : 'sandbox'
@@ -16,6 +17,26 @@ const allowedOrigins = (process.env.APP_ORIGIN || 'http://127.0.0.1:5173')
   .map((origin) => origin.trim())
   .filter(Boolean)
 const primaryAppOrigin = allowedOrigins[0] || 'http://127.0.0.1:5173'
+const confirmedStripeDeposits = new Map()
+
+function getStripeClient() {
+  if (!stripeSecretKey) {
+    throw new Error('Stripe card deposits are not configured yet on the backend.')
+  }
+
+  return new Stripe(stripeSecretKey)
+}
+
+function rememberConfirmedStripeDeposit(paymentIntent) {
+  confirmedStripeDeposits.set(paymentIntent.id, {
+    id: paymentIntent.id,
+    amount: typeof paymentIntent.amount_received === 'number' ? paymentIntent.amount_received : paymentIntent.amount,
+    currency: paymentIntent.currency,
+    username: paymentIntent.metadata?.username || 'guest-user',
+    status: paymentIntent.status,
+    receivedAt: new Date().toISOString(),
+  })
+}
 
 function isPaypalConfigured() {
   return Boolean(paypalClientId && paypalClientSecret)
@@ -81,8 +102,53 @@ app.get('/api/health', (_request, response) => {
   response.json({
     ok: true,
     stripeConfigured: Boolean(stripeSecretKey),
+    stripeWebhookConfigured: Boolean(stripeWebhookSecret),
     paypalConfigured: isPaypalConfigured(),
   })
+})
+
+app.post('/api/payments/stripe/webhook', express.raw({ type: 'application/json' }), (request, response) => {
+  if (!stripeSecretKey || !stripeWebhookSecret) {
+    response.status(503).json({ message: 'Stripe webhook is not configured yet on the backend.' })
+    return
+  }
+
+  const signature = request.headers['stripe-signature']
+
+  if (!signature || typeof signature !== 'string') {
+    response.status(400).json({ message: 'Missing Stripe signature header.' })
+    return
+  }
+
+  try {
+    const stripe = getStripeClient()
+    const event = stripe.webhooks.constructEvent(request.body, signature, stripeWebhookSecret)
+
+    if (event.type === 'payment_intent.succeeded') {
+      rememberConfirmedStripeDeposit(event.data.object)
+    }
+
+    if (event.type === 'checkout.session.completed') {
+      const session = event.data.object
+
+      if (session.payment_status === 'paid') {
+        confirmedStripeDeposits.set(session.id, {
+          id: session.id,
+          amount: session.amount_total,
+          currency: session.currency,
+          username: session.metadata?.username || 'guest-user',
+          status: session.payment_status,
+          receivedAt: new Date().toISOString(),
+        })
+      }
+    }
+
+    response.json({ received: true })
+  } catch (error) {
+    response.status(400).json({
+      message: error instanceof Error ? error.message : 'Stripe webhook verification failed.',
+    })
+  }
 })
 
 app.post('/api/payments/create-payment-intent', async (request, response) => {
@@ -102,7 +168,7 @@ app.post('/api/payments/create-payment-intent', async (request, response) => {
   }
 
   try {
-    const stripe = new Stripe(stripeSecretKey)
+    const stripe = getStripeClient()
     const paymentIntent = await stripe.paymentIntents.create({
       amount: Math.round(amount * 100),
       currency: 'usd',
@@ -117,6 +183,41 @@ app.post('/api/payments/create-payment-intent', async (request, response) => {
   } catch (error) {
     response.status(500).json({
       message: error instanceof Error ? error.message : 'Stripe payment intent creation failed.',
+    })
+  }
+})
+
+app.get('/api/payments/stripe/payment-intent/:paymentIntentId', async (request, response) => {
+  if (!stripeSecretKey) {
+    response.status(503).json({ message: 'Stripe card deposits are not configured yet on the backend.' })
+    return
+  }
+
+  const { paymentIntentId } = request.params
+  const confirmedDeposit = confirmedStripeDeposits.get(paymentIntentId)
+
+  if (confirmedDeposit) {
+    response.json({ confirmed: true, deposit: confirmedDeposit })
+    return
+  }
+
+  try {
+    const stripe = getStripeClient()
+    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId)
+
+    response.json({
+      confirmed: paymentIntent.status === 'succeeded',
+      deposit: {
+        id: paymentIntent.id,
+        amount: paymentIntent.amount_received || paymentIntent.amount,
+        currency: paymentIntent.currency,
+        username: paymentIntent.metadata?.username || 'guest-user',
+        status: paymentIntent.status,
+      },
+    })
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : 'Stripe payment intent lookup failed.',
     })
   }
 })
@@ -138,7 +239,7 @@ app.post('/api/payments/checkout-session', async (request, response) => {
   }
 
   try {
-    const stripe = new Stripe(stripeSecretKey)
+    const stripe = getStripeClient()
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
       payment_method_types: ['card'],
@@ -178,7 +279,7 @@ app.get('/api/payments/checkout-session/:sessionId', async (request, response) =
   }
 
   try {
-    const stripe = new Stripe(stripeSecretKey)
+    const stripe = getStripeClient()
     const session = await stripe.checkout.sessions.retrieve(request.params.sessionId)
 
     response.json({
