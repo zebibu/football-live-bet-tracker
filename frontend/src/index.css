@@ -1,7 +1,7 @@
 :root {
-  --bg: #f7f2e8;
-  --bg-strong: #efe2ca;
-  --panel-bg: rgba(255, 247, 235, 0.92);
+  --bg: #f6f3ec;
+  --bg-strong: #ece3d2;
+  --panel-bg: rgba(255, 250, 242, 0.94);
   --panel-strong: #173123;
   --heading: #1c2f28;
   --text: #46564f;
@@ -16,8 +16,8 @@
   --font-heading: Georgia, 'Times New Roman', serif;
   color: var(--text);
   background:
-    radial-gradient(circle at top left, rgba(210, 134, 35, 0.2), transparent 28%),
-    radial-gradient(circle at right 20%, rgba(24, 124, 79, 0.16), transparent 24%),
+    radial-gradient(circle at top left, rgba(210, 134, 35, 0.14), transparent 26%),
+    radial-gradient(circle at right 18%, rgba(24, 124, 79, 0.1), transparent 22%),
     linear-gradient(180deg, var(--bg), #f9f6f0);
   font: 17px/1.55 var(--font-body);
   font-synthesis: none;
@@ -40,17 +40,6 @@ body {
   min-height: 100vh;
 }
 
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  background-image: linear-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
-  background-size: 36px 36px;
-  mask-image: radial-gradient(circle at center, black, transparent 78%);
-}
-
 a {
   color: inherit;
 }
@@ -60,9 +49,36 @@ button {
 }
 
 #root {
-  width: min(1200px, 100%);
+  width: min(1260px, 100%);
   margin: 0 auto;
   min-height: 100vh;
+}
+
+@media (min-width: 1440px) {
+  #root {
+    width: min(1440px, calc(100% - 32px));
+  }
+}
+
+@media (max-width: 767px) {
+  :root {
+    font-size: 16px;
+  }
+
+  h1 {
+    margin-top: 10px;
+    font-size: clamp(2.05rem, 8vw, 3rem);
+  }
+
+  h2 {
+    font-size: clamp(1.45rem, 5vw, 1.95rem);
+  }
+}
+
+@media (max-width: 359px) {
+  :root {
+    font-size: 15px;
+  }
 }
 
 h1,

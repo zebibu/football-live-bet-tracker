@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Elements } from '@stripe/react-stripe-js'
+import { loadStripe } from '@stripe/stripe-js'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import {
   fetchLiveScoreOverview,
@@ -17,10 +19,12 @@ import {
   toAuthProfile,
   type SocialProviderName,
 } from './auth/firebase'
+import { StripeCardDepositForm } from './components/StripeCardDepositForm'
 
 type Screen = 'lobby' | 'deposit' | 'withdrawal' | 'profile'
 type AuthMode = 'signin' | 'signup'
 type GameTab = 'today' | 'tomorrow' | 'upcoming'
+type DepositMethod = 'card' | 'paypal'
 
 type UserProfile = {
   name: string
@@ -150,6 +154,9 @@ const seedOffers: Offer[] = [
 ]
 
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '')
+const acceptedCardBrands = ['Visa', 'Mastercard']
+const stripePublishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || ''
+const stripePromise = stripePublishableKey ? loadStripe(stripePublishableKey) : null
 
 function App() {
   const [authMode, setAuthMode] = useState<AuthMode>('signin')
@@ -166,6 +173,8 @@ function App() {
   const [offerStake, setOfferStake] = useState('15')
   const [offerNote, setOfferNote] = useState('')
   const [depositAmount, setDepositAmount] = useState('25')
+  const [depositMethod, setDepositMethod] = useState<DepositMethod>('card')
+  const [depositBusy, setDepositBusy] = useState<DepositMethod | 'confirm' | null>(null)
   const [withdrawAmount, setWithdrawAmount] = useState('10')
   const [statusMessage, setStatusMessage] = useState('')
   const [offers, setOffers] = useState<Offer[]>(seedOffers)
@@ -174,6 +183,7 @@ function App() {
   const [footballError, setFootballError] = useState('')
   const [selectedLiveLeague, setSelectedLiveLeague] = useState(liveLeagueOptions[0].slug)
   const [firebaseReady] = useState(isFirebaseAuthReady())
+  const processedDepositRef = useRef<string | null>(null)
 
   const filteredGames = useMemo(
     () => betGames.filter((game) => game.dayLabel === selectedTab),
@@ -233,6 +243,111 @@ function App() {
       }
     }
   }, [selectedLiveLeague])
+
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search)
+    const depositResult = searchParams.get('deposit')
+    const stripeSessionId = searchParams.get('session_id')
+    const paypalOrderId = searchParams.get('token')
+
+    if (!depositResult) {
+      return
+    }
+
+    const depositKey = `${depositResult}:${stripeSessionId || paypalOrderId || 'none'}`
+
+    if (processedDepositRef.current === depositKey) {
+      return
+    }
+
+    processedDepositRef.current = depositKey
+
+    function clearDepositQuery() {
+      const nextUrl = new URL(window.location.href)
+      nextUrl.searchParams.delete('deposit')
+      nextUrl.searchParams.delete('session_id')
+      nextUrl.searchParams.delete('token')
+      nextUrl.searchParams.delete('PayerID')
+      window.history.replaceState({}, document.title, `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`)
+    }
+
+    async function confirmDepositReturn() {
+      if (depositResult === 'cancelled') {
+        setStatusMessage('Card deposit was cancelled before payment was completed.')
+        clearDepositQuery()
+        return
+      }
+
+      if (depositResult === 'paypal-cancelled') {
+        setStatusMessage('PayPal deposit was cancelled before approval.')
+        clearDepositQuery()
+        return
+      }
+
+      try {
+        setDepositBusy('confirm')
+
+        if (depositResult === 'stripe-success' && stripeSessionId) {
+          const response = await fetch(`${apiBaseUrl}/payments/checkout-session/${stripeSessionId}`)
+          const data = (await response.json()) as {
+            message?: string
+            paymentStatus?: string | null
+            amountTotal?: number | null
+          }
+
+          if (!response.ok) {
+            throw new Error(data.message || 'Could not confirm the Stripe card deposit.')
+          }
+
+          if (data.paymentStatus === 'paid' && typeof data.amountTotal === 'number') {
+            const confirmedAmount = data.amountTotal
+            setWalletBalance((current) => current + confirmedAmount / 100)
+            setStatusMessage(`Card deposit confirmed. ${acceptedCardBrands.join(' and ')} payments are now live on your wallet.`)
+          } else {
+            setStatusMessage('Card payment is still processing. Refresh again in a few moments if your wallet does not update.')
+          }
+
+          clearDepositQuery()
+          return
+        }
+
+        if (depositResult === 'paypal-success' && paypalOrderId) {
+          const response = await fetch(`${apiBaseUrl}/payments/paypal/capture`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ orderId: paypalOrderId }),
+          })
+          const data = (await response.json()) as {
+            message?: string
+            status?: string
+            amount?: { value?: string }
+          }
+
+          if (!response.ok) {
+            throw new Error(data.message || 'Could not capture the PayPal deposit.')
+          }
+
+          if (data.status === 'COMPLETED' && data.amount?.value) {
+            setWalletBalance((current) => current + Number(data.amount?.value || 0))
+            setStatusMessage('PayPal deposit completed and added to your wallet.')
+          } else {
+            setStatusMessage('PayPal approved the deposit, but completion is still pending.')
+          }
+
+          clearDepositQuery()
+        }
+      } catch (error) {
+        setStatusMessage(error instanceof Error ? error.message : 'Deposit confirmation failed.')
+        clearDepositQuery()
+      } finally {
+        setDepositBusy(null)
+      }
+    }
+
+    void confirmDepositReturn()
+  }, [])
 
   async function handleAuthSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -370,7 +485,7 @@ function App() {
     setStatusMessage('Deal matched. Both sides are funded and the bet is locked on that game.')
   }
 
-  async function beginStripeDeposit() {
+  async function beginPayPalDeposit() {
     const amount = Number(depositAmount)
 
     if (!Number.isFinite(amount) || amount <= 0) {
@@ -379,7 +494,8 @@ function App() {
     }
 
     try {
-      const response = await fetch(`${apiBaseUrl}/payments/checkout-session`, {
+      setDepositBusy('paypal')
+      const response = await fetch(`${apiBaseUrl}/payments/paypal/order`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -389,23 +505,22 @@ function App() {
           username: user?.username || 'guest-user',
         }),
       })
+      const data = (await response.json()) as { url?: string; message?: string }
 
       if (!response.ok) {
-        throw new Error('Deposit request failed')
+        throw new Error(data.message || 'PayPal deposit request failed.')
       }
-
-      const data = (await response.json()) as { url?: string; message?: string }
 
       if (data.url) {
         window.location.href = data.url
         return
       }
 
-      setWalletBalance((current) => current + amount)
-      setStatusMessage(data.message || 'Deposit simulated locally because Stripe is not configured yet.')
-    } catch {
-      setWalletBalance((current) => current + amount)
-      setStatusMessage('Stripe backend is not configured yet, so the deposit was simulated locally for the prototype.')
+      throw new Error(data.message || 'PayPal did not return an approval URL.')
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : 'PayPal deposit request failed.')
+    } finally {
+      setDepositBusy(null)
     }
   }
 
@@ -543,12 +658,26 @@ function App() {
 
       <section className="main-stage">
         <header className="top-banner">
-          <div>
+          <div className="banner-copy stack-gap">
             <span className="eyebrow">Free live score source</span>
             <h1>Bet directly with your friends on football games.</h1>
             <p>
               Offer a price, wait for a friend to match it, and only lock the deal after both sides are funded.
             </p>
+            <div className="stat-strip">
+              <article className="stat-card">
+                <span>Wallet available</span>
+                <strong>{walletBalance.toFixed(2)}</strong>
+              </article>
+              <article className="stat-card">
+                <span>Open offers</span>
+                <strong>{offers.filter((offer) => offer.status === 'open').length}</strong>
+              </article>
+              <article className="stat-card">
+                <span>Locked bets</span>
+                <strong>{deals.length}</strong>
+              </article>
+            </div>
           </div>
           <div className="banner-note">{statusMessage || 'Ready for your next football deal.'}</div>
         </header>
@@ -592,16 +721,77 @@ function App() {
         {activeScreen === 'deposit' ? (
           <section className="content-card stack-gap">
             <h2>Deposit</h2>
-            <p>Both players need enough wallet balance before a bet can be locked.</p>
+            <p>Choose the payment method your friend will trust fastest. The wallet updates after the provider confirms the deposit.</p>
             <label className="field-block">
               <span>Deposit amount</span>
               <input type="number" min="1" step="0.01" value={depositAmount} onChange={(event) => setDepositAmount(event.target.value)} />
             </label>
-            <button type="button" className="primary-button" onClick={() => void beginStripeDeposit()}>
-              Deposit with Stripe
-            </button>
+
+            <div className="payment-method-grid">
+              <button
+                type="button"
+                className={depositMethod === 'card' ? 'payment-method-card active' : 'payment-method-card'}
+                onClick={() => setDepositMethod('card')}
+              >
+                <span>Bank card</span>
+                <strong>Visa and Mastercard</strong>
+                <p>Secure Stripe checkout with card entry on the hosted payment page.</p>
+              </button>
+              <button
+                type="button"
+                className={depositMethod === 'paypal' ? 'payment-method-card active' : 'payment-method-card'}
+                onClick={() => setDepositMethod('paypal')}
+              >
+                <span>Wallet</span>
+                <strong>PayPal</strong>
+                <p>Redirect to PayPal, approve the deposit, then return to your wallet.</p>
+              </button>
+            </div>
+
+            {depositMethod === 'card' ? (
+              stripePromise ? (
+                <Elements stripe={stripePromise}>
+                  <StripeCardDepositForm
+                    amount={depositAmount}
+                    username={user?.username || 'guest-user'}
+                    cardholderName={user?.name || ''}
+                    apiBaseUrl={apiBaseUrl}
+                    busy={depositBusy !== null}
+                    onSuccess={(amount) => {
+                      setWalletBalance((current) => current + amount)
+                      setStatusMessage(`Card deposit confirmed. ${acceptedCardBrands.join(' and ')} payments are now live on your wallet.`)
+                    }}
+                    onError={(message) => {
+                      setStatusMessage(message)
+                    }}
+                  />
+                </Elements>
+              ) : (
+                <div className="payment-panel stack-gap">
+                  <div className="brand-strip">
+                    {acceptedCardBrands.map((brand) => (
+                      <span key={brand} className="brand-pill">{brand}</span>
+                    ))}
+                  </div>
+                  <p className="helper-copy">
+                    Add `VITE_STRIPE_PUBLISHABLE_KEY` to `frontend/.env` so card deposits can load real Stripe fields.
+                  </p>
+                </div>
+              )
+            ) : null}
+
+            {depositMethod === 'paypal' ? (
+              <div className="payment-panel stack-gap">
+                <p className="helper-copy">
+                  PayPal opens in a secure approval page. After approval you are returned here and the wallet is updated.
+                </p>
+                <button type="button" className="primary-button" onClick={() => void beginPayPalDeposit()} disabled={depositBusy !== null}>
+                  {depositBusy === 'paypal' ? 'Opening PayPal...' : 'Continue with PayPal'}
+                </button>
+              </div>
+            ) : null}
             <p className="helper-copy">
-              Real Stripe payments require a backend `.env` with a fresh `STRIPE_SECRET_KEY`. The key pasted in chat should be revoked.
+              Real deposits require backend payment credentials. Card deposits use `STRIPE_SECRET_KEY`. PayPal deposits use `PAYPAL_CLIENT_ID` and `PAYPAL_CLIENT_SECRET`.
             </p>
           </section>
         ) : null}
@@ -609,7 +799,7 @@ function App() {
         {activeScreen === 'withdrawal' ? (
           <section className="content-card stack-gap">
             <h2>Withdrawal</h2>
-            <p>Withdrawal is modeled as a request queue in this prototype.</p>
+            <p>Send a withdrawal request when you want to move unlocked wallet money out of the app.</p>
             <label className="field-block">
               <span>Withdrawal amount</span>
               <input type="number" min="1" step="0.01" value={withdrawAmount} onChange={(event) => setWithdrawAmount(event.target.value)} />

@@ -23,6 +23,7 @@ A peer-to-peer football betting prototype where friends can sign in, browse game
 - Peer bet lobby with today, tomorrow, and upcoming football games.
 - Custom offer flow where one friend proposes odds and another accepts the deal.
 - Deposit and withdrawal screens with a Stripe-backed deposit server scaffold.
+- Deposit methods for Visa, Mastercard, and PayPal.
 - Live football scoreboard feed with league switching.
 - Profile view with wallet and locked deals.
 
@@ -58,9 +59,12 @@ Copy `backend/.env.example` to `backend/.env` and set:
 ```env
 APP_ORIGIN=http://127.0.0.1:5173,https://zebibu.github.io/football-live-bet-tracker
 STRIPE_SECRET_KEY=your_fresh_secret_key_here
+PAYPAL_CLIENT_ID=your_paypal_client_id
+PAYPAL_CLIENT_SECRET=your_paypal_client_secret
+PAYPAL_ENVIRONMENT=sandbox
 ```
 
-Without that key, deposits are simulated locally so the prototype still works.
+Card deposits require Stripe. PayPal deposits require a PayPal REST app. Both payment methods redirect the user to the provider and return to the app after approval.
 
 ## Social sign-in setup
 
@@ -70,6 +74,7 @@ Copy `frontend/.env.example` to `frontend/.env` and add these values:
 
 ```env
 VITE_API_BASE_URL=http://127.0.0.1:8787/api
+VITE_STRIPE_PUBLISHABLE_KEY=your_stripe_publishable_key
 VITE_FIREBASE_API_KEY=your_firebase_web_api_key
 VITE_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
 VITE_FIREBASE_PROJECT_ID=your-project-id
@@ -89,6 +94,16 @@ The sign-in screen also includes:
 
 - friendlier Firebase auth errors
 - a `Forgot password?` reset email action
+
+## Payment methods
+
+The deposit screen now supports:
+
+- Visa via Stripe Elements
+- Mastercard via Stripe Elements
+- PayPal via PayPal Orders API
+
+The app redirects the user to the selected provider and confirms the payment when the provider returns to the app.
 
 ## Build
 

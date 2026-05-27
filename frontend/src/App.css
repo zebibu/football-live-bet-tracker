@@ -1,37 +1,538 @@
-.app-shell {
-  display: grid;
-  gap: 24px;
-  padding: 28px;
+.auth-shell,
+.dashboard-shell {
+  min-height: 100vh;
 }
 
-.hero-panel,
-.content-grid {
+.auth-shell {
   display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(360px, 0.92fr);
   gap: 24px;
+  padding: 24px;
 }
 
-.hero-panel {
-  .auth-shell,
+.dashboard-shell {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  gap: 24px;
+  padding: 24px;
+}
+
+.auth-hero,
+.auth-panel,
+.side-menu,
+.content-card,
+.top-banner,
+.profile-card {
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background: var(--panel-bg);
+  box-shadow: var(--shadow);
+}
+
+.auth-hero,
+.auth-panel,
+.side-menu,
+.content-card,
+.top-banner,
+.profile-card {
+  padding: 24px;
+}
+
+.auth-hero {
+  display: grid;
+  align-content: center;
+  gap: 16px;
+  background:
+    radial-gradient(circle at top right, rgba(210, 134, 35, 0.18), transparent 32%),
+    radial-gradient(circle at left center, rgba(24, 124, 79, 0.12), transparent 34%),
+    var(--panel-bg);
+}
+
+.stack-gap,
+.stack-column,
+.games-list,
+.score-list,
+.deals-list,
+.menu-list,
+.auth-form,
+.offer-builder,
+.social-auth-block,
+.social-auth-grid,
+.payment-panel,
+.payment-method-grid,
+.brand-strip,
+.card-placeholder-shell,
+.card-placeholder-grid,
+.banner-copy {
+  display: grid;
+  gap: 16px;
+}
+
+.auth-switcher,
+.tab-strip,
+.offer-form-grid,
+.info-grid,
+.lobby-grid,
+.section-heading-row,
+.top-banner,
+.field-inline,
+.stat-strip {
+  display: flex;
+  gap: 12px;
+}
+
+.eyebrow {
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent-strong);
+}
+
+.auth-switcher button,
+.tab-strip button,
+.menu-list button,
+.signout-button,
+.secondary-button,
+.primary-button,
+.auth-form button,
+.game-card,
+.text-button,
+.payment-method-card,
+.social-auth-button {
+  border: 0;
+  border-radius: 16px;
+  font: inherit;
+}
+
+.auth-switcher button,
+.tab-strip button,
+.menu-list button,
+.signout-button,
+.secondary-button,
+.primary-button,
+.auth-form button,
+.text-button,
+.payment-method-card,
+.social-auth-button {
+  padding: 12px 16px;
+  cursor: pointer;
+}
+
+.auth-switcher button,
+.tab-strip button,
+.menu-list button,
+.secondary-button,
+.game-card,
+.social-auth-button,
+.payment-method-card {
+  background: rgba(24, 124, 79, 0.08);
+  color: var(--accent-strong);
+}
+
+.auth-switcher button.active,
+.tab-strip button.active,
+.menu-list button.active,
+.primary-button,
+.auth-form button,
+.signout-button {
+  background: linear-gradient(135deg, var(--accent-strong), var(--accent));
+  color: #fffaf1;
+}
+
+.auth-switcher button,
+.tab-strip button,
+.menu-list button,
+.social-auth-button,
+.payment-method-card,
+.game-card,
+.primary-button,
+.secondary-button,
+.signout-button,
+.auth-form button {
+  transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease, background-color 140ms ease;
+}
+
+.auth-switcher button:hover,
+.tab-strip button:hover,
+.menu-list button:hover,
+.social-auth-button:hover,
+.payment-method-card:hover,
+.game-card:hover,
+.primary-button:hover,
+.secondary-button:hover,
+.signout-button:hover,
+.auth-form button:hover {
+  transform: translateY(-1px);
+}
+
+.payment-method-card,
+.game-card,
+.deal-card,
+.score-card,
+.info-grid article {
+  border: 1px solid rgba(41, 53, 48, 0.08);
+  border-radius: 20px;
+  background: rgba(255, 250, 241, 0.88);
+  padding: 18px;
+  text-align: left;
+}
+
+.payment-method-card.active,
+.game-card.active,
+.menu-list button.active {
+  border-color: rgba(24, 124, 79, 0.3);
+  box-shadow: 0 10px 28px rgba(24, 124, 79, 0.12);
+}
+
+.auth-form label,
+.field-block {
+  display: grid;
+  gap: 8px;
+}
+
+.auth-form span,
+.field-block span,
+.field-inline span,
+.profile-card p,
+.helper-copy,
+.banner-note,
+.game-card span,
+.score-card span,
+.payment-method-card span,
+.stat-card span {
+  color: var(--muted);
+}
+
+.auth-form input,
+.field-block input,
+.field-block textarea,
+.field-inline select {
+  width: 100%;
+  border: 1px solid rgba(41, 53, 48, 0.12);
+  border-radius: 14px;
+  padding: 13px 14px;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--heading);
+}
+
+.auth-form input:focus,
+.field-block input:focus,
+.field-block textarea:focus,
+.field-inline select:focus {
+  outline: none;
+  border-color: rgba(24, 124, 79, 0.35);
+  box-shadow: 0 0 0 4px rgba(24, 124, 79, 0.08);
+}
+
+.field-block textarea {
+  min-height: 108px;
+  resize: vertical;
+}
+
+.social-auth-button {
+  text-align: left;
+  border: 1px solid rgba(24, 124, 79, 0.12);
+}
+
+.social-auth-button:disabled,
+.auth-form button:disabled,
+.primary-button:disabled,
+.secondary-button:disabled,
+.text-button:disabled {
+  opacity: 0.72;
+  cursor: wait;
+}
+
+.text-button {
+  padding: 0;
+  background: transparent;
+  color: var(--accent-strong);
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+  justify-self: start;
+}
+
+.side-menu {
+  display: grid;
+  align-content: space-between;
+  gap: 20px;
+  background: linear-gradient(180deg, rgba(22, 48, 36, 0.98), rgba(15, 30, 22, 0.98));
+  color: #f6efe2;
+  position: sticky;
+  top: 24px;
+  height: fit-content;
+}
+
+.profile-card {
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: none;
+}
+
+.profile-avatar {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid rgba(255, 255, 255, 0.16);
+}
+
+.profile-card h2,
+.profile-card strong,
+.side-menu .eyebrow,
+.signout-button {
+  color: #f6efe2;
+}
+
+.menu-list {
+  align-content: start;
+}
+
+.menu-list button,
+.signout-button {
+  justify-content: flex-start;
+  display: flex;
+}
+
+.main-stage {
+  display: grid;
+  gap: 20px;
+}
+
+.top-banner {
+  justify-content: space-between;
+  align-items: stretch;
+}
+
+.banner-copy {
+  max-width: 760px;
+}
+
+.banner-note {
+  min-width: 250px;
+  max-width: 320px;
+  padding: 16px;
+  border-radius: 18px;
+  background: rgba(24, 124, 79, 0.08);
+  border: 1px solid rgba(24, 124, 79, 0.12);
+}
+
+.stat-strip {
+  flex-wrap: wrap;
+}
+
+.stat-card {
+  min-width: 150px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.68);
+  border: 1px solid rgba(41, 53, 48, 0.08);
+}
+
+.stat-card strong,
+.game-card strong,
+.deal-card strong,
+.score-card strong,
+.info-grid strong,
+.payment-method-card strong {
+  display: block;
+  margin-top: 6px;
+  color: var(--heading);
+}
+
+.lobby-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+  gap: 20px;
+}
+
+.games-list,
+.payment-method-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.offer-form-grid,
+.info-grid,
+.card-placeholder-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.section-heading-row {
+  justify-content: space-between;
+  align-items: center;
+}
+
+.compact-row {
+  align-items: flex-end;
+}
+
+.field-inline {
+  align-items: center;
+}
+
+.brand-strip {
+  grid-template-columns: repeat(2, minmax(0, max-content));
+}
+
+.brand-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(24, 124, 79, 0.08);
+  color: var(--accent-strong);
+  font-weight: 700;
+}
+
+.payment-panel {
+  padding: 18px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.52);
+  border: 1px solid rgba(41, 53, 48, 0.08);
+}
+
+.card-placeholder-shell {
+  padding: 18px;
+  border: 1px dashed rgba(24, 124, 79, 0.24);
+  border-radius: 20px;
+  background: rgba(24, 124, 79, 0.04);
+}
+
+.card-field-wide {
+  grid-column: span 2;
+}
+
+.card-placeholder-shell input {
+  background: rgba(255, 255, 255, 0.92);
+  color: rgba(41, 53, 48, 0.88);
+}
+
+.stripe-element-shell {
+  border: 1px solid rgba(41, 53, 48, 0.12);
+  border-radius: 14px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.stripe-element-shell:focus-within {
+  border-color: rgba(24, 124, 79, 0.35);
+  box-shadow: 0 0 0 4px rgba(24, 124, 79, 0.08);
+}
+
+.score-list,
+.deals-list,
+.stack-column,
+.menu-list {
+  gap: 14px;
+}
+
+@media (min-width: 1440px) {
   .dashboard-shell {
-    min-height: 100vh;
-  }
-
-  .auth-shell {
-    display: grid;
-    grid-template-columns: minmax(0, 1.1fr) minmax(360px, 0.9fr);
-    gap: 24px;
+    grid-template-columns: 320px minmax(0, 1fr);
+    gap: 28px;
     padding: 28px;
   }
 
-  .auth-hero,
-  .auth-panel,
-  .side-menu,
-  .content-card,
+  .auth-shell {
+    grid-template-columns: minmax(0, 1.15fr) minmax(420px, 0.85fr);
+    gap: 28px;
+    padding: 28px;
+  }
+
   .top-banner {
-    border: 1px solid var(--border);
-    border-radius: 28px;
-    background: var(--panel-bg);
-    box-shadow: var(--shadow);
+    gap: 20px;
+  }
+
+  .banner-copy {
+    max-width: 860px;
+  }
+
+  .banner-note {
+    min-width: 320px;
+  }
+
+  .lobby-grid {
+    grid-template-columns: minmax(0, 1.35fr) minmax(380px, 0.85fr);
+    gap: 24px;
+  }
+
+  .games-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1100px) and (max-width: 1439px) {
+  .dashboard-shell {
+    grid-template-columns: 264px minmax(0, 1fr);
+  }
+
+  .top-banner {
+    gap: 16px;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1099px) {
+  .auth-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-shell {
+    grid-template-columns: 1fr;
+    padding-top: 18px;
+  }
+
+  .side-menu {
+    position: static;
+    grid-template-columns: minmax(220px, 0.9fr) minmax(0, 1.1fr);
+    align-items: start;
+    gap: 16px;
+  }
+
+  .menu-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-content: start;
+  }
+
+  .signout-button {
+    width: 100%;
+  }
+
+  .top-banner,
+  .lobby-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .games-list,
+  .payment-method-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .offer-form-grid,
+  .info-grid,
+  .card-placeholder-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 480px) and (max-width: 767px) {
+  .auth-shell,
+  .dashboard-shell {
+    padding: 16px;
+  }
+
+  .auth-shell,
+  .dashboard-shell,
+  .lobby-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .side-menu {
+    position: static;
+    gap: 16px;
   }
 
   .auth-hero,
@@ -40,46 +541,152 @@
   .content-card,
   .top-banner,
   .profile-card {
-    padding: 28px;
+    padding: 20px;
+    border-radius: 20px;
   }
 
-  .auth-hero {
-    display: grid;
-    align-content: center;
-    gap: 18px;
-    background:
-      radial-gradient(circle at top right, rgba(239, 180, 43, 0.28), transparent 30%),
-      radial-gradient(circle at left center, rgba(24, 124, 79, 0.16), transparent 35%),
-      var(--panel-bg);
-  }
-
-  .auth-panel,
-  .stack-gap,
-  .stack-column,
-  .games-list,
-  .score-list,
-  .deals-list,
-  .menu-list,
-  .auth-form,
-  .offer-builder,
-  .social-auth-block,
-  .social-auth-grid {
-    display: grid;
-    gap: 16px;
-  }
-
-  .auth-switcher,
+  .top-banner,
+  .section-heading-row,
+  .field-inline,
   .tab-strip,
+  .auth-switcher,
+  .stat-strip {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .games-list,
+  .payment-method-grid,
   .offer-form-grid,
   .info-grid,
-  .lobby-grid,
-  .section-heading-row,
-  .top-banner,
-  .field-inline,
+  .card-placeholder-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .card-field-wide {
+    grid-column: auto;
+  }
+
+  .banner-note {
+    min-width: 0;
+    max-width: none;
+  }
+
+  .menu-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .menu-list button,
   .signout-button {
-    display: flex;
+    justify-content: center;
+  }
+
+  .profile-card {
+    text-align: center;
+  }
+}
+
+@media (max-width: 479px) {
+  .auth-shell,
+  .dashboard-shell {
+    grid-template-columns: 1fr;
+    padding: 12px;
     gap: 12px;
+  }
+
+  .side-menu {
+    position: static;
+    gap: 12px;
+  }
+
+  .auth-hero,
+  .auth-panel,
+  .side-menu,
+  .content-card,
+  .top-banner,
+  .profile-card {
+    padding: 16px;
+    border-radius: 18px;
+  }
+
+  .top-banner,
+  .section-heading-row,
+  .field-inline,
+  .tab-strip,
+  .auth-switcher,
+  .stat-strip {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .menu-list,
+  .games-list,
+  .payment-method-grid,
+  .offer-form-grid,
+  .info-grid,
+  .card-placeholder-grid,
+  .lobby-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .menu-list button,
+  .signout-button {
+    justify-content: center;
+  }
+
+  .menu-list button,
+  .signout-button,
+  .auth-switcher button,
+  .tab-strip button,
+  .primary-button,
+  .secondary-button,
+  .payment-method-card,
+  .social-auth-button,
+  .game-card {
+    width: 100%;
+  }
+
+  .profile-card {
+    text-align: center;
+  }
+
+  .card-field-wide {
+    grid-column: auto;
+  }
+
+  .brand-strip {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .banner-note {
+    min-width: 0;
+    max-width: none;
+    padding: 14px;
+  }
+
+  .stat-card {
+    min-width: 0;
+  }
+
+  .field-block textarea {
+    min-height: 92px;
+  }
+}
+
+@media (max-width: 359px) {
+  .auth-shell,
+  .dashboard-shell {
+    padding: 10px;
+  }
+
+  .auth-hero,
+  .auth-panel,
+  .side-menu,
+  .content-card,
+  .top-banner,
+  .profile-card {
+    padding: 14px;
+    border-radius: 16px;
   }
 
   .auth-switcher button,
@@ -89,367 +696,14 @@
   .secondary-button,
   .primary-button,
   .auth-form button,
-  .game-card,
-  .text-button {
-    border: 0;
-    border-radius: 18px;
-    padding: 12px 16px;
-    font: inherit;
-    cursor: pointer;
-  }
-
-  .auth-switcher button,
-  .tab-strip button,
-  .menu-list button,
-  .secondary-button,
-  .game-card,
-  .social-auth-button {
-    background: rgba(24, 124, 79, 0.08);
-    color: var(--accent-strong);
-  }
-
-  .auth-switcher button.active,
-  .tab-strip button.active,
-  .menu-list button.active,
-  .primary-button,
-  .auth-form button,
-  .signout-button {
-    background: linear-gradient(135deg, var(--accent-strong), var(--accent));
-    color: #fffaf1;
-  }
-
-  .auth-form label,
-  .field-block {
-    display: grid;
-    gap: 8px;
-  }
-
-  .auth-form span,
-  .field-block span,
-  .field-inline span,
-  .profile-card p,
-  .helper-copy,
-  .banner-note,
-  .game-card span,
-  .score-card span {
-    color: var(--muted);
-  }
-
-  .auth-form input,
-  .field-block input,
-  .field-block textarea,
-  .field-inline select {
-    width: 100%;
-    border: 1px solid rgba(41, 53, 48, 0.12);
-    border-radius: 16px;
-    padding: 13px 14px;
-    background: rgba(255, 255, 255, 0.78);
-    color: var(--heading);
-  }
-
-  .social-auth-button {
-    text-align: left;
-    border: 1px solid rgba(24, 124, 79, 0.12);
-    border-radius: 18px;
-    padding: 14px 16px;
-    font: inherit;
-    cursor: pointer;
-  }
-
-  .social-auth-button:disabled,
-  .auth-form button:disabled {
-    opacity: 0.72;
-    cursor: wait;
-  }
-
-  .text-button {
-    padding: 0;
-    justify-self: start;
-    background: transparent;
-    color: var(--accent-strong);
-    text-decoration: underline;
-    text-underline-offset: 0.18em;
-  }
-
-  .field-block textarea {
-    min-height: 100px;
-    resize: vertical;
-  }
-
-  .dashboard-shell {
-    display: grid;
-    grid-template-columns: 290px minmax(0, 1fr);
-    gap: 24px;
-    padding: 24px;
-  }
-
-  .side-menu {
-    display: grid;
-    align-content: space-between;
-    gap: 24px;
-    background:
-      linear-gradient(180deg, rgba(34, 58, 43, 0.98), rgba(18, 31, 23, 0.98)),
-      var(--panel-strong);
-    color: #f6efe2;
-  }
-
-  .profile-card {
-    border-radius: 24px;
-    background: rgba(255, 255, 255, 0.07);
-  }
-
-  .profile-avatar {
-    width: 64px;
-    height: 64px;
-    border-radius: 50%;
-    object-fit: cover;
-    border: 2px solid rgba(255, 255, 255, 0.16);
-    margin-bottom: 10px;
-  }
-
-  .profile-card h2,
-  .profile-card strong,
-  .side-menu .eyebrow,
-  .signout-button {
-    color: #f6efe2;
-  }
-
-  .menu-list {
-    align-content: start;
-  }
-
-  .menu-list button,
-  .signout-button {
-    justify-content: flex-start;
-  }
-
-  .main-stage {
-    display: grid;
-    gap: 20px;
-  }
-
-  .top-banner {
-    justify-content: space-between;
-    align-items: flex-start;
-  }
-
-  .banner-note {
-    max-width: 320px;
-    padding: 14px 16px;
-    border-radius: 20px;
-    background: rgba(24, 124, 79, 0.08);
-  }
-
-  .lobby-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1.2fr) minmax(340px, 0.8fr);
-    gap: 20px;
-  }
-
-  .games-list {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .game-card,
-  .deal-card,
-  .score-card,
-  .info-grid article {
-    border: 1px solid rgba(41, 53, 48, 0.08);
-    border-radius: 22px;
-    background: rgba(255, 250, 241, 0.82);
-    padding: 18px;
-  }
-
+  .payment-method-card,
+  .social-auth-button,
   .game-card {
-    text-align: left;
+    padding: 11px 13px;
   }
 
-  .game-card.active {
-    border-color: rgba(24, 124, 79, 0.35);
-    box-shadow: 0 12px 30px rgba(24, 124, 79, 0.12);
-  }
-
-  .game-card strong,
-  .deal-card strong,
-  .score-card strong,
-  .info-grid strong {
-    display: block;
-    margin: 8px 0;
-    color: var(--heading);
-  }
-
-  .compact-row {
-    align-items: end;
-  }
-
-  .info-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  @media (max-width: 1100px) {
-    .auth-shell,
-    .dashboard-shell,
-    .lobby-grid,
-    .games-list,
-    .info-grid,
-    .offer-form-grid,
-    .top-banner {
-      grid-template-columns: 1fr;
-    }
-
-    .dashboard-shell {
-      grid-template-columns: 1fr;
-    }
-  }
-
-  @media (max-width: 720px) {
-    .auth-shell,
-    .dashboard-shell {
-      padding: 16px;
-    }
-
-    .auth-hero,
-    .auth-panel,
-    .side-menu,
-    .content-card,
-    .top-banner,
-    .profile-card {
-      padding: 20px;
-      border-radius: 22px;
-    }
-
-    .section-heading-row,
-    .field-inline,
-    .tab-strip,
-    .auth-switcher {
-      flex-direction: column;
-      align-items: stretch;
-    }
-  }
-.info-card,
-.highlights-list li,
-.live-result-card,
-.table-row {
-  border-radius: 24px;
-  border: 1px solid rgba(41, 53, 48, 0.08);
-  background: rgba(255, 250, 241, 0.82);
-  padding: 18px;
-}
-
-.match-card h3,
-.info-card h3,
-.highlights-list strong {
-  margin: 12px 0 10px;
-  font-size: 1.08rem;
-}
-
-.match-market {
-  display: inline-flex;
-  padding: 8px 10px;
-  border-radius: 999px;
-  background: rgba(24, 124, 79, 0.08);
-  color: var(--accent-strong);
-  font-weight: 700;
-}
-
-.odds-row {
-  margin: 16px 0 12px;
-}
-
-.odds-row strong {
-  font-size: 1.4rem;
-  color: var(--heading);
-}
-
-.bullet-strip,
-.highlights-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.bullet-strip {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 14px;
-}
-
-.bullet-strip li {
-  padding: 8px 10px;
-  border-radius: 999px;
-  background: rgba(41, 53, 48, 0.06);
-  font-size: 0.84rem;
-}
-
-.highlights-list li {
-  display: grid;
-  gap: 8px;
-}
-
-.live-label {
-  font-size: 0.82rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--accent-strong);
-}
-
-.live-result-card h3 {
-  margin: 10px 0 8px;
-}
-
-.table-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-}
-
-.table-row strong {
-  display: block;
-  margin-bottom: 4px;
-  color: var(--heading);
-}
-
-.table-row span {
-  font-weight: 800;
-  color: var(--accent-strong);
-}
-
-@media (max-width: 1024px) {
-  .app-shell {
-    padding: 18px;
-  }
-
-  .hero-panel,
-  .content-grid,
-  .matches-grid,
-  .pulse-grid,
-  .filters-bar {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 640px) {
-  .hero-copy,
-  .panel,
-  .bet-slip-card {
-    padding: 20px;
-    border-radius: 22px;
-  }
-
-  .card-topline,
-  .slip-item,
-  .slip-footer,
-  .section-heading,
-  .odds-row,
-  .table-row {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .live-match-meta {
-    justify-items: start;
+  .brand-pill {
+    font-size: 0.88rem;
+    padding: 7px 10px;
   }
 }
